@@ -11,7 +11,9 @@ import { createRoomsRouter } from '../src/routes/rooms.js';
 
 async function withApi(run, { enabled = true } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'hallae-rooms-api-'));
-  const store = createStore(join(dir, 'db.json'));
+  const store = createStore(join(dir, 'db.json'), {
+    enabled: () => enabled
+  });
   const app = express();
 
   // null 본문도 라우터에 전달해 입력 검사를 확인한다.

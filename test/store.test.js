@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  existsSync,
   mkdtempSync,
   readFileSync,
   writeFileSync,
@@ -23,8 +24,10 @@ function setup(t) {
   return {
     dir,
     path,
-    store: createStore(path)
-  };
+    store: createStore(path, {
+        enabled: () => true
+        })
+    };
 }
 
 const readJson = (path) =>
@@ -207,4 +210,152 @@ test('잘못된 저장 요청은 기존 파일을 보존한다', (t) => {
   }
 
   assert.equal(readFileSync(path, 'utf8'), before);
+});
+
+test('꺼진 상태의 조회는 파일을 만들지 않고 고정 기본 방 코드를 반환한다', (t) => {
+  const { path } = setup(t);
+  const store = createStore(path, {
+    enabled: () => false
+  });
+
+  assert.deepEqual(store.load(), {
+    members: [],
+    tasks: []
+  });
+
+  const code = store.getDefaultRoomCode();
+
+  assert.equal(code, 'LEGACY');
+  assert.deepEqual(store.loadRoom(code).members, []);
+  assert.equal(store.loadRoom('ABC234'), null);
+  assert.equal(existsSync(path), false);
+});
+
+test('꺼진 상태에서는 원본을 이전하지 않고 방별 저장도 기존 형식을 유지한다', (t) => {
+  const { dir, path } = setup(t);
+  const original = JSON.stringify({
+    members: [{ id: 'A', name: 'A', availableHours: 0 }],
+    tasks: []
+  }, null, 2);
+
+  writeFileSync(path, original, 'utf8');
+
+  const store = createStore(path, {
+    enabled: () => false
+  });
+
+  const code = store.getDefaultRoomCode();
+
+  store.load();
+  const room = store.loadRoom(code);
+
+  assert.equal(readFileSync(path, 'utf8'), original);
+  assert.deepEqual(readdirSync(dir), ['db.json']);
+
+  room.members.push({
+    id: 'B',
+    name: 'B',
+    availableHours: 0
+  });
+  store.saveRoom(code, room);
+
+  const saved = readJson(path);
+
+  assert.deepEqual(
+    Object.keys(saved).sort(),
+    ['members', 'tasks']
+  );
+  assert.equal(saved.members.length, 2);
+  assert.equal(store.loadRoom(code).size, 2);
+  assert.deepEqual(readdirSync(dir), ['db.json']);
+});
+
+test('스위치를 켠 시점에만 백업하고 이전하며 기본 방 코드를 유지한다', (t) => {
+  const { dir, path } = setup(t);
+  let enabled = false;
+
+  const original = JSON.stringify({
+    members: [{ id: 'A', name: 'A', availableHours: 5 }],
+    tasks: []
+  });
+
+  writeFileSync(path, original, 'utf8');
+
+  const store = createStore(path, {
+    enabled: () => enabled
+  });
+
+  const beforeCode = store.getDefaultRoomCode();
+
+  assert.equal(readFileSync(path, 'utf8'), original);
+  assert.deepEqual(readdirSync(dir), ['db.json']);
+
+  enabled = true;
+  store.load();
+
+  const root = readJson(path);
+
+  assert.equal(root.schemaVersion, 1);
+  assert.equal(root.defaultRoom, beforeCode);
+
+  const backups = readdirSync(dir).filter(
+    (name) => name.startsWith('db.json.before-rooms-')
+  );
+
+  assert.equal(backups.length, 1);
+  assert.equal(
+    readFileSync(join(dir, backups[0]), 'utf8'),
+    original
+  );
+
+  store.load();
+
+  assert.equal(
+    readdirSync(dir).filter(
+      (name) => name.startsWith('db.json.before-rooms-')
+    ).length,
+    1
+  );
+});
+
+test('이미 이전된 파일은 꺼진 상태에서도 보존하고 기본 방 정원은 인원 이상으로 유지한다', (t) => {
+  const { path, store: enabledStore } = setup(t);
+
+  enabledStore.load();
+
+  const other = enabledStore.createRoom({
+    name: '다른 방',
+    size: 3
+  });
+
+  const otherBefore = enabledStore.loadRoom(other.code);
+  const code = enabledStore.getDefaultRoomCode();
+
+  const disabledStore = createStore(path, {
+    enabled: () => false
+  });
+
+  disabledStore.save({
+    members: [
+      { id: 'A', name: 'A', availableHours: 0 },
+      { id: 'B', name: 'B', availableHours: 0 }
+    ],
+    tasks: []
+  });
+
+  assert.equal(readJson(path).schemaVersion, 1);
+  assert.equal(disabledStore.getDefaultRoomCode(), code);
+  assert.equal(disabledStore.loadRoom(code).size, 2);
+  assert.deepEqual(
+    disabledStore.loadRoom(other.code),
+    otherBefore
+  );
+
+  assert.throws(
+    () => disabledStore.createRoom({
+      name: '새 방',
+      size: 2
+    }),
+    /방 기능이 꺼져 있습니다/
+  );
 });
