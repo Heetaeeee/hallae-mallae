@@ -23,6 +23,9 @@ const dataDir = process.env.DATA_DIR ||
 
 const dbPath = join(dataDir, 'db.json');
 
+// 스위치가 꺼진 기존 형식의 데이터를 식별하는 고정 기본 방 코드.
+const LEGACY_ROOM_CODE = 'LEGACY';
+
 function isObject(value) {
   return value !== null &&
     typeof value === 'object' &&
@@ -61,10 +64,8 @@ function validateStore(db) {
 
     validateData(room);
 
-    const input = validateRoomInput(room);
-
     if (
-      !input.ok ||
+      !validateRoomInput(room).ok ||
       typeof room.demo !== 'boolean' ||
       typeof room.createdAt !== 'string' ||
       !Number.isFinite(Date.parse(room.createdAt))
@@ -76,10 +77,21 @@ function validateStore(db) {
   return db;
 }
 
-// 테스트에서는 별도 임시 파일 경로를 넘겨 실제 데이터를 보호한다.
-export function createStore(filePath) {
+// 기존 팀원 등록 API를 사용하는 전환 기간의 기본 방만 보정한다.
+// 일반 방의 정원을 자동으로 늘리지는 않는다.
+function syncDefaultSize(db) {
+  const room = db.rooms[db.defaultRoom];
+
+  room.size = Math.max(room.size, room.members.length, 1);
+
+  return db;
+}
+
+export function createStore(filePath, {
+  enabled = () => process.env.ROOMS_ENABLED === '1'
+} = {}) {
   function writeAtomic(db) {
-    const text = JSON.stringify(validateStore(db), null, 2);
+    const text = JSON.stringify(db, null, 2);
 
     mkdirSync(dirname(filePath), { recursive: true });
 
@@ -97,65 +109,141 @@ export function createStore(filePath) {
     }
   }
 
-  function readStore() {
-    let text;
+  function readState() {
+    let text = null;
 
     try {
       text = readFileSync(filePath, 'utf8');
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
-
-      const initial = migrateLegacyData(
-        { members: [], tasks: [] },
-        generateRoomCode([])
-      );
-
-      writeAtomic(initial);
-      return initial;
     }
 
-    const parsed = JSON.parse(text);
+    const parsed = text === null
+      ? { members: [], tasks: [] }
+      : JSON.parse(text);
 
-    // 새 구조가 표시된 파일이 잘못됐으면 오류를 낸다.
-    // 기존 데이터로 오인해서 덮어쓰지 않는다.
-    if (
-      isObject(parsed) &&
-      (
-        Object.hasOwn(parsed, 'schemaVersion') ||
-        Object.hasOwn(parsed, 'rooms') ||
-        Object.hasOwn(parsed, 'defaultRoom')
-      )
-    ) {
-      return validateStore(parsed);
+    const isRoomStore = isObject(parsed) &&
+      ['schemaVersion', 'rooms', 'defaultRoom'].some(
+        (key) => Object.hasOwn(parsed, key)
+      );
+
+    // 이미 이전된 파일은 스위치를 꺼도 옛 형식으로 되돌리지 않는다.
+    if (isRoomStore) {
+      return {
+        legacy: false,
+        data: syncDefaultSize(validateStore(parsed))
+      };
     }
 
     validateData(parsed);
 
+    // 꺼진 상태에서는 조회만으로 파일을 만들거나 이전하지 않는다.
+    if (!enabled()) {
+      return {
+        legacy: true,
+        data: parsed
+      };
+    }
+
     const migrated = migrateLegacyData(
       parsed,
-      generateRoomCode([])
+      LEGACY_ROOM_CODE
     );
 
     validateStore(migrated);
 
-    // 기존 파일을 보존한 다음에만 새 구조를 저장한다.
-    const backupPath =
-      `${filePath}.before-rooms-${randomUUID()}.bak`;
+    // 기존 파일이 있을 때만 원본 백업을 남긴다.
+    if (text !== null) {
+      const backupPath =
+        `${filePath}.before-rooms-${randomUUID()}.bak`;
 
-    copyFileSync(filePath, backupPath, constants.COPYFILE_EXCL);
+      copyFileSync(
+        filePath,
+        backupPath,
+        constants.COPYFILE_EXCL
+      );
+    }
+
     writeAtomic(migrated);
 
-    return migrated;
+    return {
+      legacy: false,
+      data: migrated
+    };
+  }
+
+  // 기존 형식에는 방 메타데이터가 없으므로 임시 정보로 감싸서 반환한다.
+  function legacyRoom(data) {
+    return {
+      name: '기존 프로젝트',
+      size: Math.max(data.members.length, 1),
+      demo: false,
+      members: data.members,
+      tasks: data.tasks,
+      createdAt: null
+    };
+  }
+
+  function getDefaultRoomCode() {
+    const state = readState();
+
+    return state.legacy
+      ? LEGACY_ROOM_CODE
+      : state.data.defaultRoom;
+  }
+
+  function load() {
+    const state = readState();
+
+    const room = state.legacy
+      ? state.data
+      : state.data.rooms[state.data.defaultRoom];
+
+    return {
+      members: room.members,
+      tasks: room.tasks
+    };
+  }
+
+  function save(data) {
+    validateData(data);
+
+    const state = readState();
+
+    if (state.legacy) {
+      writeAtomic(validateData({
+        ...state.data,
+        ...data
+      }));
+      return;
+    }
+
+    const db = state.data;
+
+    db.rooms[db.defaultRoom] = {
+      ...db.rooms[db.defaultRoom],
+      members: data.members,
+      tasks: data.tasks
+    };
+
+    writeAtomic(validateStore(syncDefaultSize(db)));
   }
 
   function loadRoom(code) {
     const normalized = normalizeRoomCode(code);
+
     if (normalized === null) return null;
 
-    const db = readStore();
+    const state = readState();
 
-    return Object.hasOwn(db.rooms, normalized)
-      ? db.rooms[normalized]
+    if (state.legacy) {
+      return normalized === LEGACY_ROOM_CODE
+        ? legacyRoom(state.data)
+        : null;
+    }
+
+    return Object.hasOwn(state.data.rooms, normalized)
+      ? state.data.rooms[normalized]
       : null;
   }
 
@@ -163,7 +251,24 @@ export function createStore(filePath) {
     validateData(room);
 
     const normalized = normalizeRoomCode(code);
-    const db = readStore();
+    const state = readState();
+
+    if (state.legacy) {
+      if (normalized !== LEGACY_ROOM_CODE) {
+        throw new Error('저장할 방을 찾을 수 없습니다.');
+      }
+
+      // 기존 형식에서는 팀원·작업만 저장한다.
+      // 방 이름·정원 등 메타데이터는 활성화 이후 저장할 수 있다.
+      writeAtomic(validateData({
+        ...state.data,
+        members: room.members,
+        tasks: room.tasks
+      }));
+      return;
+    }
+
+    const db = state.data;
 
     if (
       normalized === null ||
@@ -172,23 +277,26 @@ export function createStore(filePath) {
       throw new Error('저장할 방을 찾을 수 없습니다.');
     }
 
-    // members·tasks만 받아도 기존 방의 팀명·정원 등은 유지한다.
     db.rooms[normalized] = {
       ...db.rooms[normalized],
       ...room
     };
 
-    writeAtomic(db);
+    writeAtomic(validateStore(syncDefaultSize(db)));
   }
 
   function createRoom(input) {
+    if (!enabled()) {
+      throw new Error('방 기능이 꺼져 있습니다.');
+    }
+
     const result = validateRoomInput(input);
 
     if (!result.ok) {
       throw new Error(result.error);
     }
 
-    const db = readStore();
+    const { data: db } = readState();
     const code = generateRoomCode(Object.keys(db.rooms));
 
     const room = {
@@ -200,38 +308,13 @@ export function createStore(filePath) {
     };
 
     db.rooms[code] = room;
-    writeAtomic(db);
 
-    return { code, ...room };
-  }
-
-  // 기존 라우터 호환용. 기본 방만 읽고 씀
-  function load() {
-    const db = readStore();
-    const room = db.rooms[db.defaultRoom];
+    writeAtomic(validateStore(syncDefaultSize(db)));
 
     return {
-      members: room.members,
-      tasks: room.tasks
+      code,
+      ...room
     };
-  }
-
-  function save(data) {
-    validateData(data);
-
-    const db = readStore();
-
-    db.rooms[db.defaultRoom] = {
-      ...db.rooms[db.defaultRoom],
-      members: data.members,
-      tasks: data.tasks
-    };
-
-    writeAtomic(db);
-  }
-
-  function getDefaultRoomCode() {
-    return readStore().defaultRoom;
   }
 
   return {
