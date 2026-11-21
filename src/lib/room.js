@@ -74,26 +74,36 @@ export function migrateLegacyData(
   code,
   createdAt = new Date().toISOString()
 ) {
-    if ( db === null || typeof db !== 'object' || Array.isArray(db) || !Array.isArray(db.members) || !Array.isArray(db.tasks) ) {
+  if (
+    db === null ||
+    typeof db !== 'object' ||
+    Array.isArray(db) ||
+    !Array.isArray(db.members) ||
+    !Array.isArray(db.tasks)
+  ) {
     throw new Error('기존 저장 데이터 형식이 올바르지 않습니다.');
-    }
+  }
 
-    if ( typeof code !== 'string' || normalizeRoomCode(code) === null || normalizeRoomCode(code) !== code ) {
+  if (
+    typeof code !== 'string' ||
+    normalizeRoomCode(code) === null ||
+    normalizeRoomCode(code) !== code
+  ) {
     throw new Error('기본 방 코드가 올바르지 않습니다.');
-    }
+  }
 
-    return {
-        schemaVersion: 1,
-        defaultRoom: code,
-        rooms: {
-            [code]: {
-            name: '기존 프로젝트',
-            size: Math.max(db.members.length, 1),
-            demo: false,
-            members: structuredClone(db.members),
-            tasks: structuredClone(db.tasks),
-            createdAt
-            }
-        }
-    };
+  return {
+    schemaVersion: 1,
+    defaultRoom: code,
+    rooms: {
+      [code]: {
+        name: '기존 프로젝트',
+        size: Math.max(db.members.length, 1),
+        demo: false,
+        members: structuredClone(db.members),
+        tasks: structuredClone(db.tasks),
+        createdAt
+      }
+    }
+  };
 }

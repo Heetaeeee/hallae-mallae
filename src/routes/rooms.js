@@ -139,7 +139,7 @@ export function createRoomsRouter({
     return res.status(201).json(member);
   });
 
-    router.patch('/:code', (req, res) => {
+  router.patch('/:code', (req, res) => {
     const code = normalizeRoomCode(req.params.code);
     const headerCode = normalizeRoomCode(
       req.get('X-Room-Code')
