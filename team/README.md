@@ -50,11 +50,11 @@ flowchart LR
 
 | 구분 | 만드는 것 | 파일 |
 |---|---|---|
-| 화면 | 팀원 등록·목록, 작업 보드, 진행률·D-day·완료 작업 비중·주차별 수행률 | `public/js/board.js` |
+| 화면 | 팀원 등록·목록·삭제, 작업 보드, 진행률·D-day·완료 작업 비중·주차별 수행률 | `public/js/board.js` |
 | 계산 규칙 | 입력값 검사, 진행률, D-day, 완료 작업 비중, 주차별 수행률 | `src/lib/validate.js`·`progress.js` |
-| 서버 API | 팀원·작업 등록 및 수정, 작업 삭제, 진행률·주차별 수행률 조회 | `src/routes/members.js`·`tasks.js`·`progress.js`·`weekly.js` |
-| 테스트 | 44개 | `test/validate.test.js`·`progress.test.js`·`completed-at.test.js`·`tasks-api.test.js` |
-| 시연 | 팀원·작업 등록 → 입력 오류 안내 → 완료 처리 → 진행 현황 변화 | |
+| 서버 API | 팀원·작업 등록·수정·삭제, 진행률·주차별 수행률 조회 | `src/routes/members.js`·`tasks.js`·`progress.js`·`weekly.js` |
+| 테스트 | 49개 | `test/validate.test.js`·`progress.test.js`·`completed-at.test.js`·`tasks-api.test.js`·`members-api.test.js` |
+| 시연 | 팀원·작업 등록 → 입력 오류 안내 → 완료 처리 → 팀원 삭제·담당 해제 → 진행 현황 변화 | |
 
 ### A 김권섭 — 작업 정의
 
@@ -355,15 +355,16 @@ const isParent = (task) => parentIds.has(task.id);
 | B | `POST /api/rooms/:code/join` | `{ name }` | `Member`·201 |
 | B | `PATCH /api/rooms/:code` | `{ size }` | `{ code, name, size, memberCount }` |
 | C | `GET /api/members` | — | `Member[]` |
-| C | `POST /api/members` | `{ name, availableHours }` | `Member`·201 |
-| C | `PATCH /api/members/:id` | `{ name?, availableHours? }` | `Member` |
-| C | `GET /api/tasks` | — | `Task[]` |
-| C | `POST /api/tasks` | `{ title, dueDate?, parentId? }` | `Task`·201 |
-| C | `PATCH /api/tasks/:id` | `{ status?, assigneeId?, hours?, dueDate?, title? }` | `Task` |
-| C | `DELETE /api/tasks/:id` | — | `{ deleted: [id, ...] }` |
+| C | `POST /api/members` | `{ name, availableHours }` | `Member` (201) — 같은 이름이면 400 |
+| C | `PATCH /api/members/:id` | `{ name?, availableHours? }` | `Member` — 다른 팀원과 같은 이름이면 400 |
+| C | `DELETE /api/members/:id` | — | `{ deleted, unassigned: [taskId, …] }` — 맡은 작업은 담당 미정, 추정은 보존하되 현재 계산에서 제외, 공개 조건 충족 시 공개 기록. 없으면 404 |
+| C | `GET /api/tasks` | — | `Task[]` — `estimates`·`estimateHistory` 제외 |
+| C | `POST /api/tasks` | `{ title, dueDate?, parentId? }` | `Task` (201) |
+| C | `PATCH /api/tasks/:id` | `{ status?, assigneeId?, hours?, dueDate?, title? }` | `Task` — 추정 공개 전 숫자 `hours`는 400, `null`은 허용 |
+| C | `DELETE /api/tasks/:id` | — | `{ deleted: [id, …] }` — 모든 하위 작업 포함, 없으면 404 |
 | C | `GET /api/progress` | — | 진행 현황 요약 |
 | C | `GET /api/weekly` | — | `{ weeks: [...] }` |
-| A | `POST /api/breakdown` | `{ title }` | `{ subtasks, source }` |
+| A | `POST /api/breakdown` | `{ title }` | `{ subtasks: string[], source: 'ai' \| 'fallback' }` |
 | A | `POST /api/tasks/:id/estimates` | `{ memberId, hours, reason? }` | `{ taskId, estimate }` |
 | A | `GET /api/estimates` | — | `{ [taskId]: estimate }` |
 | B | `GET /api/loads` | — | `{ members: [...] }` |
@@ -386,8 +387,8 @@ const isParent = (task) => parentIds.has(task.id);
 
 ```js
 {
-  progress: 40,
-  doneHoursTotal: 12,
+  progress: 40,       // 전체 진행률 %
+  doneHoursTotal: 12, // 완료된 작업의 확정 예상 시간 합
   members: [
     {
       memberId: 'm1',
@@ -395,7 +396,12 @@ const isParent = (task) => parentIds.has(task.id);
       doneShare: 50,
       doneHours: 6
     }
-  ]
+  ],
+  // 담당자 없는 완료 작업의 몫. 0시간이면 화면에 표시하지 않음
+  unassigned: {
+    doneShare: 20,
+    doneHours: 2
+  }
 }
 ```
 
@@ -669,13 +675,13 @@ document.addEventListener('data', async (event) => {
 |---|---:|
 | A 기능 | 38 |
 | B 분배 기능 | 26 |
-| C 기능 | 44 |
+| C 기능 | 49 |
 | 방 규칙·변환 | 12 |
 | 저장소 | 11 |
 | 방 API | 18 |
 | 공용 방 코드 검사 | 7 |
-| 전체 | 156 |
+| 전체 | 161 |
 
-방 서버 뼈대 테스트는 48개입니다. 기존 기능 테스트 108개와 합쳐 전체 156개입니다.
+방 서버 뼈대 테스트는 48개입니다. 기존 기능 테스트 113개와 합쳐 전체 161개입니다.
 
 테스트를 먼저 작성하고 실패를 확인한 뒤 구현합니다. 기능 추가와 병합에 따라 테스트 수가 달라지면 관련 문서도 갱신합니다.
