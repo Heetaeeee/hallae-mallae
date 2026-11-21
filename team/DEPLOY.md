@@ -650,7 +650,7 @@ docker restart 3oss-app
 |---|---|---|
 | 브라우저에서 주소가 계속 로딩만 됨 | 보안 그룹에 80 · 443 이 없음 | 4-3 확인 |
 | `502 Bad Gateway` | nginx 는 살아 있는데 컨테이너가 죽음 | `docker ps -a` 로 상태, `docker logs 3oss-app` 로 오류 확인 |
-| 컨테이너가 바로 꺼짐 (`Exited`) | `.env` 가 없거나 잘못됨, 저장 데이터가 깨짐 | `docker logs 3oss-app`. 데이터 문제면 12장 되돌리기 |
+| 컨테이너가 바로 꺼짐 (`Exited`) | `.env` 가 없거나 잘못됨, 저장 데이터가 깨짐 | `docker logs 3oss-app`. 데이터 문제면 12장 되돌리기. 이전 이미지로 되돌린 뒤라면 16-1 (데이터도 같이 되돌려야 함) |
 | `permission denied ... /data` | `.env` 에 `DATA_DIR=` 가 들어 있음 | `.env` 에서 그 줄을 지우고 컨테이너 다시 만들기 |
 | 컨테이너를 다시 만들었더니 데이터가 사라짐 | `-v 3oss-data:/data` 를 빼먹음 | 항상 11장 명령을 그대로 복사. 백업에서 되돌리기 |
 | `docker: permission denied` | 6장의 `usermod` 뒤 다시 접속을 안 함 | `exit` → `sudo -iu ubuntu` |
@@ -681,3 +681,37 @@ docker restart 3oss-app
 ```bash
 docker cp 3oss-app:/data/db.json /home/ubuntu/backups/before-rooms.json
 ```
+
+- 같은 때 지금 돌고 있는 이미지에도 이름표를 붙여 둡니다. 11장에서 새로 빌드하면 `3oss` 이름이 새 이미지로 넘어가므로, 이걸 안 하면 되돌릴 이미지가 없습니다
+
+```bash
+docker tag 3oss 3oss:before-rooms
+```
+
+### 16-1. 저장 구조가 바뀐 뒤 이전 버전으로 되돌리기
+
+방 구조로 바뀐 `db.json` 은 **이전 코드가 읽지 못합니다** (저장 형식 오류로 컨테이너가 바로 꺼짐). 그래서 이미지만 바꾸면 안 되고, **이미지와 데이터를 같이** 되돌립니다. 위의 백업 두 가지(`before-rooms.json` · `3oss:before-rooms`)가 있어야 합니다.
+
+1. 지금 컨테이너를 지웁니다 (볼륨은 남음)
+
+```bash
+docker rm -f 3oss-app
+```
+
+2. 볼륨의 `db.json` 을 올리기 직전 백업으로 덮어씁니다. 앱과 같은 사용자(1000)로 복사해야 앱이 계속 쓸 수 있습니다
+
+```bash
+docker run --rm --user 1000:1000 -v 3oss-data:/data -v /home/ubuntu/backups:/b alpine cp /b/before-rooms.json /data/db.json
+```
+
+3. 이전 이미지로 다시 띄웁니다 (8장 명령에서 마지막 이미지 이름만 다름)
+
+```bash
+docker run -d --name 3oss-app --init --restart unless-stopped -p 127.0.0.1:3000:3000 --memory 512m --env-file .env -v 3oss-data:/data 3oss:before-rooms
+```
+
+4. 8장처럼 `docker ps` 가 `healthy` 인지, 브라우저에서 팀원 · 작업이 보이는지 확인하고 단톡방에 "되돌림" 을 남깁니다
+
+- **백업 이후에 넣은 데이터는 사라집니다.** 되돌리기 전에 지금 `db.json` 도 `docker cp 3oss-app:/data/db.json /home/ubuntu/backups/after-rooms.json` 으로 떠 두면 나중에 손으로 옮길 수 있습니다
+- `before-rooms.json` 을 못 떴다면 서버가 자동으로 남긴 볼륨 안의 `db.json.before-rooms-….bak` 을 씁니다 — 2번 명령의 `cp` 를 `sh -c 'cp /data/db.json.before-rooms-*.bak /data/db.json'` 으로 바꿔 실행
+- 코드도 되돌려야 하면 `~/3oss` 에서 `git log` 로 병합 전 커밋을 찾아 `git checkout <커밋>` — 다음 업데이트 때 `git switch main` 으로 돌아옵니다
