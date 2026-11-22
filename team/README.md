@@ -126,7 +126,7 @@ const now = new Date().toISOString();
 for (const task of db.tasks) {
   Object.assign(
     task,
-    revealAfterMemberRemoved(task, ids, now)
+    revealAfterMemberRemoved(task, ids, now)   // 입장 코드를 켠 방이면 네 번째 값으로 줄어든 room.size
   );
 }
 
@@ -453,6 +453,7 @@ const isParent = (task) => parentIds.has(task.id);
 }
 ```
 
+- **정원(입장 코드를 켠 방):** 등록 인원이 방 정원에 닿기 전에는, 등록된 사람이 모두 내도 공개하지 않습니다. 나중에 들어온 사람이 이미 공개된 값을 보고 추정하는 것을 막기 위해서입니다. `estimateSummary(estimates, memberIds, wasRevealed, size)` 의 네 번째 값으로 `room.size` 를 넘기고, 입장 코드가 꺼져 있으면 넘기지 않습니다(지금과 같음).
 - 한 번 공개된 작업은 팀원이 늘어도 다시 가리지 않습니다.
 - 공개 후 제출·수정한 값은 요약에 반영합니다.
 - 공개된 값이나 근거가 변경되면 다음 버전을 남깁니다.
