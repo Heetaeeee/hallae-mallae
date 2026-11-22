@@ -1,10 +1,13 @@
 // estimates: { 팀원 id: { hours, reason } }
 // 전원이 내기 전에는 values · reasons · median 을 담지 않는다
 // wasRevealed: 이미 한 번 공개된 작업이면 새 팀원이 들어와도 공개를 유지한다
-export function estimateSummary(estimates, memberIds, wasRevealed = false) {
+// size: 방 정원(입장 코드를 켰을 때). 등록 인원이 정원에 닿기 전에는 공개하지 않는다 —
+//       나중에 들어온 사람이 이미 공개된 값을 보고 추정하지 못하게. 주지 않으면(null) 지금처럼 등록된 전원 기준
+export function estimateSummary(estimates, memberIds, wasRevealed = false, size = null) {
   const submittedIds = memberIds.filter((id) => estimates[id]);
+  const full = size == null || memberIds.length >= size;
   const revealed = submittedIds.length > 0 &&
-    (wasRevealed || submittedIds.length === memberIds.length);
+    (wasRevealed || (full && submittedIds.length === memberIds.length));
   if (!revealed) return { revealed, submittedIds };
 
   const values = {};
@@ -37,12 +40,13 @@ export function addVersion(history, summary, by, at) {
 // 추정은 제출할 때만 공개를 기록하므로, 삭제로 "남은 전원이 냄" 이 채워지면 여기서 공개 기록과 ver 1 을 남긴다.
 // 그러지 않으면 화면엔 공개돼 보여도 기록이 없어, 다음에 팀원이 늘면 다시 가려지고 수정 기록에 ver 1 이 빠진다.
 // 삭제된 팀원이 낸 추정은 지우지 않는다 — memberIds 에 없으니 계산에서만 빠진다.
+// size: 삭제 뒤의 방 정원(입장 코드를 켰을 때). 주지 않으면 지금처럼 남은 전원 기준
 // → 작업에 그대로 덮어쓸 { estimatesRevealed, estimateHistory }. 원본 작업은 바꾸지 않는다
-export function revealAfterMemberRemoved(task, memberIds, at) {
+export function revealAfterMemberRemoved(task, memberIds, at, size = null) {
   const estimatesRevealed = Boolean(task.estimatesRevealed);
   const estimateHistory = task.estimateHistory ?? [];
   if (estimatesRevealed) return { estimatesRevealed, estimateHistory };
-  const summary = estimateSummary(task.estimates ?? {}, memberIds);
+  const summary = estimateSummary(task.estimates ?? {}, memberIds, false, size);
   if (!summary.revealed) return { estimatesRevealed, estimateHistory };
   return { estimatesRevealed: true, estimateHistory: addVersion(estimateHistory, summary, null, at) };
 }
