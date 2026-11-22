@@ -1,6 +1,6 @@
 :root {
   /* 1. 원시값 — 여기 말고는 어디에도 색 코드를 쓰지 않는다 */
-  --white: #FCFDFF;
+  --white: #FFFFFF;  --paper: #F5F6F2;  --paper-line: #E3E5DE;
   --grey-100: #EEF2F7;  --grey-200: #E1E7EF;  --grey-300: #CFD7E2;  --grey-600: #5E6875;  --grey-900: #1F2733;
   --blue-100: #E3ECFD;  --blue-600: #2A63E8;  --blue-700: #1F4FC4;
   --green-100: #DFF3E4; --green-700: #1F6B35;
@@ -9,11 +9,12 @@
   --violet-100: #E9E3FB; --teal-100: #D5EFEC; --pink-100: #FBE1EC; --peach-100: #FCE6D6; --sky-100: #D9EDFB; --sand-100: #EEE9D9;
 
   /* 2. 뜻 — 화면 코드는 이 이름만 쓴다 */
-  --bg: var(--grey-100);          /* 페이지 바탕 */
+  --bg: var(--paper);          /* 페이지 바탕 */
   --surface: var(--white);        /* 패널 · 카드 */
   --ink: var(--grey-900);         /* 본문 */
   --sub: var(--grey-600);         /* 보조 글자 */
-  --line: var(--grey-300);        /* 구분선 · 입력칸 테두리 */
+  --line: var(--grey-300);
+  --edge: var(--paper-line);      /* 패널 테두리 */        /* 구분선 · 입력칸 테두리 */
   --track: var(--grey-200);       /* 막대 바닥 · 기본 배지 */
   --primary: var(--blue-600);     /* 누를 수 있는 것 · 계산된 값 */
   --primary-strong: var(--blue-700);
@@ -30,7 +31,7 @@
   --m4: var(--peach-100);  --m5: var(--sky-100);  --m6: var(--sand-100);
 
   --font: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  --r-s: 12px;  --r-m: 16px;  --r-l: 20px;  --r-pill: 999px;
+  --r-s: 8px;  --r-m: 10px;  --r-l: 14px;  --r-pill: 999px;
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
@@ -62,9 +63,9 @@ strong { font-weight: 600; }
 .row { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: end; }
 .between { display: flex; gap: var(--s2); justify-content: space-between; align-items: center; flex-wrap: wrap; }
 
-/* 패널 · 카드 — 테두리도 그림자도 없이 바탕과의 밝기 차이로 구분 */
-.panel { background: var(--surface); border-radius: var(--r-l); padding: var(--s5); }
-.card  { background: var(--surface); border-radius: var(--r-m); padding: var(--s4); }
+/* 패널 · 카드 — 그림자 없이 얇은 테두리로 구분. 둥근 정도는 패널 > 카드 > 버튼 */
+.panel { background: var(--surface); border: 1px solid var(--edge); border-radius: var(--r-l); padding: var(--s5); }
+.card  { background: var(--surface); border: 1px solid var(--edge); border-radius: var(--r-m); padding: var(--s4); }
 .panel--ai { background: var(--ai-bg); }
 .slot { border-top: 1px solid var(--track); padding-top: var(--s4); }
 [data-slot]:empty { display: none; }
@@ -160,3 +161,55 @@ a.card { color: inherit; text-decoration: none; }
 .group > summary { list-style: none; }
 .group[open] > summary { margin-bottom: var(--s3); }
 @media (max-width: 640px) { .split { grid-template-columns: minmax(0, 1fr); } }
+
+/* 머리말 — 이름은 왼쪽, 탭은 밑줄. 오류 줄은 아래 한 줄 전체 */
+.page > header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--s2) var(--s5);
+                 border-bottom: 1px solid var(--edge); }
+.page > header > h1 { display: flex; align-items: center; gap: var(--s3); padding-bottom: var(--s3); font-size: 22px; font-weight: 800; }
+.page > header > h1::before { content: "할\A말"; white-space: pre; display: grid; place-items: center; width: 34px; height: 34px;
+                 border-radius: var(--r-s); background: var(--ink); color: var(--bg); font-size: 11px; line-height: 1.05; font-weight: 800; text-align: center; }
+.page > header > #app-error { flex-basis: 100%; }
+.nav { gap: var(--s4); flex-wrap: nowrap; overflow-x: auto; }
+.nav a { padding: 0 2px; border-radius: 0; border-bottom: 2px solid transparent; }
+.nav a[aria-current="page"] { background: none; color: var(--ink); border-bottom-color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .nav a:hover { background: none; color: var(--ink); } a.card:hover { background: var(--surface); border-color: var(--ink); } }
+h2 { font-size: 18px; }
+
+/* 조용한 버튼은 회색 — 파랑은 '다음에 할 일'에만. 삭제는 올렸을 때만 빨강 */
+.btn--quiet { color: var(--sub); }
+@media (hover: hover) and (pointer: fine) {
+  .btn--quiet:hover:not(:disabled) { background: var(--track); color: var(--ink); }
+  .btn--quiet[aria-label$="삭제"]:hover:not(:disabled) { background: var(--over-bg); color: var(--over-ink); }
+}
+
+/* 칸 제목 — 노트의 굵은 밑줄. 개수 배지는 글자만 */
+.board > * > .between:first-child, .split > * > .between:first-child {
+  padding-bottom: var(--s2); border-bottom: 2px solid var(--ink); }
+.board > * > .between:first-child .badge, .split > * > .between:first-child .badge { background: none; color: var(--sub); padding: 0; }
+
+/* 홈 — 실제 순서라서 번호 흐름 */
+.flow { counter-reset: flow; }
+.flow > a.card { counter-increment: flow; position: relative; padding-left: 64px; }
+.flow > a.card::before { content: counter(flow); position: absolute; left: var(--s4); top: var(--s4);
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  border: 1.5px solid var(--ink); font-weight: 700; font-size: 15px; }
+.flow > a.card h2 { line-height: 30px; }
+
+.flow > p.sub:first-child { font-size: 17px; color: var(--ink); max-width: 36em; }
+
+/* 링크 — 브라우저 기본 파랑·보라 대신 */
+a { color: var(--primary-strong); text-underline-offset: 3px; }
+
+/* 접기 · 펼치기 줄 — 기본 ▶ 대신 작은 화살표, 보조 글자색 */
+details:not(.group) > summary { display: flex; align-items: center; gap: var(--s2); min-height: 40px; list-style: none;
+  cursor: pointer; color: var(--sub); font-size: 14px; font-weight: 600; }
+details:not(.group) > summary::-webkit-details-marker { display: none; }
+details:not(.group) > summary::before { content: '▸'; }
+details:not(.group)[open] > summary::before { content: '▾'; }
+@media (hover: hover) and (pointer: fine) { details > summary:hover { color: var(--ink); } }
+
+/* 추천할 것이 없을 때 — 아직 정하지 않은 상태라 점선 상자, 다음 할 일은 버튼처럼 */
+#recommend:has(> a:last-child) { padding: var(--s5); border: 1.5px dashed var(--line); border-radius: var(--r-l); }
+#recommend > a:last-child { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4);
+  border-radius: var(--r-s); background: var(--primary); color: var(--on-primary); font-weight: 600; text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { #recommend > a:last-child:hover { background: var(--primary-strong); } }
