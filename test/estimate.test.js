@@ -112,3 +112,28 @@ test('추정이 없는 작업 · 원본 작업은 건드리지 않는다', () =>
   assert.deepEqual(revealAfterMemberRemoved(t, ['m1'], 'T1'), { estimatesRevealed: false, estimateHistory: [] });
   assert.deepEqual(t, { id: 't2' });
 });
+
+// 정원 (입장 코드를 켠 방). size 를 주지 않으면 지금과 같다
+test('정원이 차기 전에는 등록된 전원이 내도 공개하지 않는다', () => {
+  const s = estimateSummary({ m1: e(3), m2: e(5) }, ['m1', 'm2'], false, 3);
+  assert.equal(s.revealed, false);
+  assert.deepEqual(s.submittedIds, ['m1', 'm2']);
+  assert.equal('values' in s, false);
+});
+test('정원이 차고 전원이 내면 공개한다', () => {
+  const s = estimateSummary({ m1: e(3), m2: e(5), m3: e(8) }, ['m1', 'm2', 'm3'], false, 3);
+  assert.equal(s.revealed, true);
+  assert.equal(s.median, 5);
+});
+test('정원을 주지 않으면 지금처럼 등록된 전원 기준으로 공개한다', () => {
+  assert.equal(estimateSummary({ m1: e(3) }, ['m1']).revealed, true);
+  assert.equal(estimateSummary({ m1: e(3) }, ['m1'], false, null).revealed, true);
+});
+test('이미 공개된 작업은 정원이 남아 있어도 공개를 유지한다', () => {
+  assert.equal(estimateSummary({ m1: e(3), m2: e(5) }, ['m1', 'm2'], true, 3).revealed, true);
+});
+test('팀원 삭제 뒤 공개 처리도 정원을 지킨다', () => {
+  const t = task({ m1: e(3), m2: e(5) });
+  assert.equal(revealAfterMemberRemoved(t, ['m1', 'm2'], 'T1', 3).estimatesRevealed, false);  // 아직 한 명 더 들어올 자리
+  assert.equal(revealAfterMemberRemoved(t, ['m1', 'm2'], 'T1', 2).estimatesRevealed, true);   // 삭제로 정원도 2 로 줄어듦
+});
