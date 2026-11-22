@@ -1,10 +1,8 @@
 // A 김권섭 — 입장 화면 (enter.html): 방 코드로 들어가기 · 새 방 만들기 · 체험 방 → 처음 참여 / 기존 팀원
 // 방 API 는 B 의 /api/rooms (team/README "방 API"). 서버에서 온 글자는 전부 textContent 로만 넣는다.
-import { api } from './api.js';
+import { api, ROOM_KEY } from './api.js';
 
 const root = document.querySelector('#enter');
-// 들어간 방을 기억하는 키 (합의 대기: 공용 api.js 가 이 값을 읽어 X-Room-Code 헤더를 붙이고, 머리말이 이름 · 나가기를 그린다)
-export const ROOM_KEY = 'hallae:room';
 
 function el(tag, props = {}, ...children) {
   const node = Object.assign(document.createElement(tag), props);
