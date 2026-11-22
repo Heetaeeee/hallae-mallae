@@ -525,7 +525,8 @@ const isParent = (task) => parentIds.has(task.id);
 
 | 페이지 | 자리 | 담당 파일 |
 |---|---|---|
-| `index.html` | 홈 카드·`#progress` | C·`public/js/board.js` |
+| `index.html` | 첫 화면(인트로) | A·`public/intro.css` |
+| `home.html` | 홈 카드·`#progress` | C·`public/js/board.js` |
 | `board.html` | `#task-form`·`#tasks`·`#members`·`#progress` | C·`public/js/board.js` |
 | `sizing.html` | `#breakdown`·`#sizing` | A·`public/js/sizing.js` |
 | `load.html` | `#load`·`#recommend` | B·`public/js/load.js` |
@@ -658,8 +659,8 @@ document.addEventListener('data', async (event) => {
 | B 분배 | `src/lib/load.js`·`explain.js`<br/>`src/routes/loads.js`·`recommend.js`<br/>`public/js/load.js` |
 | 서버 뼈대·배포 B | `package.json`·`server.js`·`src/app.js`·`src/lib/store.js`·`.env.example`·`Dockerfile`·`.dockerignore` |
 | 방 서버 뼈대 B | `src/lib/room.js`·`src/routes/rooms.js`·`src/middleware/room-context.js` |
-| 화면 뼈대 C | `public/index.html`·`board.html`·`sizing.html`·`load.html`·`public/js/api.js` |
-| 공용 스타일 A | `public/style.css`·`team/DESIGN.md`·`team/design-mockup.html` |
+| 화면 뼈대 C | `public/home.html`·`board.html`·`sizing.html`·`load.html`·`public/js/api.js` |
+| 공용 스타일·첫 화면 A | `public/style.css`·`public/index.html`·`public/intro.css`·`team/DESIGN.md`·`team/design-mockup.html` |
 
 각 기능의 테스트는 해당 기능 담당자가 관리합니다.
 
