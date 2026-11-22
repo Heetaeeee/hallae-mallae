@@ -261,7 +261,7 @@ public/
   js/                  api.js · board.js · load.js · sizing.js
 test/                  단위 테스트
 team/                  역할 분담 · 개인별 지침서
-docs/screens/           README 화면 미리보기 그림
+docs/screens/          README 화면 미리보기 그림
 ```
 
 ## 개발 관리
