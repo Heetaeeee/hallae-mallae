@@ -66,7 +66,7 @@ flowchart LR
 | 계산 규칙 | AI 응답 검사, 추정 공개 조건·중앙값·의견 차이·수정 기록 | `src/lib/breakdown.js`·`estimate.js` |
 | 서버 API | 세부 작업 제안, 추정 제출·조회 | `src/routes/breakdown.js`·`estimates.js` |
 | LLM 호출 | 서버에서 Gemini 호출 | `src/lib/llm.js` |
-| 테스트 | 38개 | `test/breakdown.test.js`·`estimate.test.js`·`llm.test.js` |
+| 테스트 | 43개 | `test/breakdown.test.js`·`estimate.test.js`·`llm.test.js` |
 | 시연 | 기존 작업 선택 → 세분화 → 추정 제출 → 동시 공개 → 팀이 시간 확정 | |
 
 ### B 박지호 — 분배
@@ -674,15 +674,15 @@ document.addEventListener('data', async (event) => {
 
 | 구분 | 개수 |
 |---|---:|
-| A 기능 | 38 |
+| A 기능 | 43 |
 | B 분배 기능 | 26 |
 | C 기능 | 49 |
 | 방 규칙·변환 | 12 |
 | 저장소 | 11 |
 | 방 API | 18 |
 | 공용 방 코드 검사 | 7 |
-| 전체 | 161 |
+| 전체 | 166 |
 
-방 서버 뼈대 테스트는 48개입니다. 기존 기능 테스트 113개와 합쳐 전체 161개입니다.
+방 서버 뼈대 테스트는 48개입니다. 기존 기능 테스트 118개와 합쳐 전체 166개입니다.
 
 테스트를 먼저 작성하고 실패를 확인한 뒤 구현합니다. 기능 추가와 병합에 따라 테스트 수가 달라지면 관련 문서도 갱신합니다.
