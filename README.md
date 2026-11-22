@@ -5,6 +5,18 @@
 
 2026 KW OSS 팀 프로젝트 · team03 · [제안 이슈 #4](https://github.com/kw-hdi-lab/oss2026-project/issues/4)
 
+### 화면 미리보기
+
+> 배포 주소는 준비 중입니다. 아래는 예시 데이터로 띄운 실제 화면이고, 직접 띄우려면 [화면 보는 법](#화면-보는-법)을 따르세요. 그림을 누르면 크게 보입니다.
+
+[![인트로 — 사이트에 들어오면 처음 보이는 화면](docs/screens/intro.png)](docs/screens/intro.png)
+
+| 홈 | 등록 · 진행 |
+|---|---|
+| [![홈](docs/screens/home.png)](docs/screens/home.png) | [![등록 · 진행](docs/screens/board.png)](docs/screens/board.png) |
+| **작업 정의** | **분배** |
+| [![작업 정의](docs/screens/sizing.png)](docs/screens/sizing.png) | [![분배](docs/screens/load.png)](docs/screens/load.png) |
+
 ---
 
 ## 30초 요약
@@ -249,6 +261,7 @@ public/
   js/                  api.js · board.js · load.js · sizing.js
 test/                  단위 테스트
 team/                  역할 분담 · 개인별 지침서
+docs/screens/           README 화면 미리보기 그림
 ```
 
 ## 개발 관리
