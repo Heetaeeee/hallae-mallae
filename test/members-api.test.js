@@ -28,7 +28,11 @@ async function withApi(run) {
     return { status: res.status, body: await res.json() };
   };
   try {
-    await run({ del, saved: () => db });
+    const post = async (body) => {
+      const res = await fetch(base, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      return { status: res.status, body: await res.json() };
+    };
+    await run({ del, post, saved: () => db });
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -89,4 +93,18 @@ test('팀원을 지우면 정원도 1 줄고, 줄어든 정원이 남은 인원�
     assert.equal(saved().size, 3);
     assert.equal(saved().tasks.find((t) => t.id === 'wait').estimatesRevealed, false);
   });
+});
+
+test('입장 코드가 켜지면 팀원 등록(POST)은 400 이고 저장하지 않는다 — 입장으로만 들어온다', async () => {
+  const before = process.env.ROOMS_ENABLED;
+  process.env.ROOMS_ENABLED = '1';
+  try {
+    await withApi(async ({ post, saved }) => {
+      const r = await post({ name: '새사람', availableHours: 5 });
+      assert.equal(r.status, 400);
+      assert.equal(saved().members.length, 3);
+    });
+  } finally {
+    if (before === undefined) delete process.env.ROOMS_ENABLED; else process.env.ROOMS_ENABLED = before;
+  }
 });

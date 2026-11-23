@@ -12,6 +12,8 @@ export function createMembersRouter(loadDb = loadRoom, saveDb = saveRoom) {
   });
 
   router.post('/', (req, res) => {
+    // 입장 코드가 켜지면 팀원은 입장(POST /api/rooms/:code/join)으로만 생긴다 — 정원 검사도 그쪽에 있다
+    if (process.env.ROOMS_ENABLED === '1') return res.status(400).json({ error: '팀원은 입장 화면에서 이름을 넣고 들어옵니다.' });
     const db = loadDb(req.roomCode);
     const v = validateMember(req.body, { takenNames: db.members.map((m) => m.name) });
     if (!v.ok) return res.status(400).json({ error: v.error });

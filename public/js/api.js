@@ -42,8 +42,33 @@ export async function refresh() {
   document.dispatchEvent(new CustomEvent('data', { detail: { members, tasks } }));
 }
 
+// 입장 코드 스위치(GET /api/config). 한 페이지에서 한 번만 묻고, 못 물어보면 꺼진 것으로 본다
+let config;
+export const roomsEnabled = () => (config ??= api('/api/config').then((c) => c.roomsEnabled === true, () => false));
+
+// 머리말 메뉴 아래에 "팀명 · 내 이름 · 나가기" (입장 코드가 켜져 있고 들어간 방이 있을 때만)
+function showRoomBar(room) {
+  const leave = Object.assign(document.createElement('button'), { type: 'button', className: 'btn btn--quiet btn--s', textContent: '나가기' });
+  leave.addEventListener('click', () => {
+    try { localStorage.removeItem(ROOM_KEY); } catch { /* 지우지 못해도 입장 화면에서 다시 고르면 된다 */ }
+    location.href = 'enter.html';
+  });
+  const text = Object.assign(document.createElement('span'), { textContent: `${room.roomName} · ${room.memberName}` });
+  const bar = Object.assign(document.createElement('p'), { className: 'between sub' });
+  bar.append(text, leave);
+  document.querySelector('header .nav')?.after(bar);
+}
+
 // 페이지를 열 때 한 번. 각 화면 JS 가 'data' 를 듣기 시작한 뒤에 불러야 해서 HTML 맨 끝에서 부릅니다.
 export function start() {
+  const room = savedRoom();
+  roomsEnabled().then((on) => { if (on && room) showRoomBar(room); });
+  // 저장된 내가 팀원 목록에서 지워졌으면 그 방의 입장 화면으로 보내 다시 고르게 한다
+  document.addEventListener('data', async ({ detail }) => {
+    if (!room?.memberId || detail.members.some((m) => m.id === room.memberId) || !(await roomsEnabled())) return;
+    try { localStorage.removeItem(ROOM_KEY); } catch { /* 위와 같음 */ }
+    location.href = `enter.html?code=${encodeURIComponent(room.code)}`;
+  });
   refresh().catch((error) => {
     document.querySelector('#app-error').textContent = `데이터를 불러오지 못했습니다. ${error.message}`;
   });
