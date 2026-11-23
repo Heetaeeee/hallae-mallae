@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { load } from '../lib/store.js';
+import { loadRoom } from '../lib/store.js';
 import { progressPercent, doneShare } from '../lib/progress.js';
 
 const router = Router();
 
 router.get('/', (req, res) => {
-  const { members, tasks } = load();
+  const { members, tasks } = loadRoom(req.roomCode);
   const shares = members.map((m) => ({ m, s: doneShare(m.id, tasks) }));
   // 담당자가 없는 완료 작업(삭제된 팀원이 끝낸 작업 등)도 전체 시간에 들어가므로 따로 보여 준다
   const unassigned = doneShare(null, tasks);

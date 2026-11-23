@@ -14,7 +14,7 @@ async function withApi(run) {
   };
   const app = express();
   app.use(express.json());
-  app.use('/api/tasks', createTasksRouter(() => structuredClone(db), (next) => { db = next; }));
+  app.use('/api/tasks', createTasksRouter(() => structuredClone(db), (code, next) => { db = next; }));
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}/api/tasks`;
