@@ -36,7 +36,7 @@ function enterAs(room, member) {
     // 저장이 막힌 브라우저 — 다른 화면이 방을 알 수 없으므로 들어가지 않는다
     throw new Error('이 브라우저는 방 정보를 저장할 수 없습니다. 개인정보 보호 모드를 끄고 다시 시도해 주세요.');
   }
-  location.href = './';
+  location.href = 'home.html';
 }
 
 // ---------- ① 시작: 코드로 들어가기 · 새 방 만들기 · 체험 방 ----------
@@ -157,7 +157,7 @@ function checkConfig() {
     if (roomsEnabled) return startView();
     root.replaceChildren(el('section', { className: 'panel stack' }, el('h2', {}, '입장 코드가 아직 꺼져 있습니다'),
       el('p', { className: 'sub' }, '지금은 팀 하나로 동작합니다. 바로 시작하면 됩니다.'),
-      el('div', {}, el('a', { className: 'btn btn--primary', href: './' }, '바로 시작하기'))));
+      el('div', {}, el('a', { className: 'btn btn--primary', href: 'home.html' }, '바로 시작하기'))));
   }).catch((err) => {
     // 켜졌는지 모르는 채로 입장 폼을 보여 주지 않는다
     const retry = el('button', { className: 'btn btn--primary', type: 'button' }, '다시 시도');
