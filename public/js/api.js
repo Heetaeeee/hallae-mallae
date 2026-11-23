@@ -1,13 +1,32 @@
 // 공용 호출 함수 (C 작성). 각자 화면 JS 는 이 두 함수만 가져다 씁니다.
 
+// 입장 화면(enter.html)에서 들어간 방 — { code, roomName, memberId, memberName }
+export const ROOM_KEY = 'hallae:room';
+export function savedRoom() {
+  try { return JSON.parse(localStorage.getItem(ROOM_KEY)); } catch { return null; }
+}
+
+// 방 코드가 없거나 그 방이 없다는 응답이면 입장 화면으로 보낸다 (입장 코드를 켰을 때만 이 응답이 온다 — B 의 room-context)
+// shortcut: 서버 오류 문장으로 판별한다. 문장을 바꾸면 여기도 같이 바꾸고, 필요해지면 오류 코드를 따로 받는다
+const NEEDS_ROOM = ['올바른 방 코드를 함께 보내 주세요.', '방을 찾을 수 없습니다.'];
+
 export async function api(path, options) {
+  const room = savedRoom();
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    // 들어간 방이 있으면 모든 요청에 방 코드를 붙인다. 입장 코드가 꺼져 있으면 서버가 이 헤더를 무시한다
+    headers: { 'Content-Type': 'application/json', ...(room?.code ? { 'X-Room-Code': room.code } : {}), ...options?.headers },
     body: options?.body ? JSON.stringify(options.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error ?? '요청을 처리하지 못했습니다.');
+  if (!res.ok) {
+    // 방 API(/api/rooms) 자체의 "방을 찾을 수 없습니다" 는 입장 화면에서 코드를 잘못 넣은 경우라 그대로 보여 준다
+    if (NEEDS_ROOM.includes(data.error) && !path.startsWith('/api/rooms') && !location.pathname.endsWith('enter.html')) {
+      try { localStorage.removeItem(ROOM_KEY); } catch { /* 지우지 못해도 입장 화면에서 다시 고르면 된다 */ }
+      location.href = 'enter.html';
+    }
+    throw new Error(data.error ?? '요청을 처리하지 못했습니다.');
+  }
   return data;
 }
 

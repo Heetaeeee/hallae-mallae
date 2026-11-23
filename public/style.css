@@ -213,3 +213,6 @@ details:not(.group)[open] > summary::before { content: '▾'; }
 #recommend > a:last-child { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4);
   border-radius: var(--r-s); background: var(--primary); color: var(--on-primary); font-weight: 600; text-decoration: none; }
 @media (hover: hover) and (pointer: fine) { #recommend > a:last-child:hover { background: var(--primary-strong); } }
+
+/* A — enter: 방 코드는 크게, 한 글자씩 또렷하게 */
+.room-code { font-size: 28px; font-weight: 700; letter-spacing: 0.2em; font-variant-numeric: tabular-nums; }

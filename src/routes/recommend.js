@@ -1,10 +1,10 @@
 import { Router } from 'express';
 
-import { load } from '../lib/store.js';
+import { loadRoom } from '../lib/store.js';
 import { recommend } from '../lib/load.js';
 import { explainRecommendation } from '../lib/explain.js';
 
-export function createRecommendRouter(loadDb = load) {
+export function createRecommendRouter(loadDb = loadRoom) {
   const router = Router();
 
   router.post('/', (req, res) => {
@@ -34,7 +34,13 @@ export function createRecommendRouter(loadDb = load) {
       });
     }
 
-    const db = loadDb();
+    const db = loadDb(req.roomCode);
+
+    if (!db) {
+      return res.status(404).json({
+        error: '방을 찾을 수 없습니다.'
+      });
+    }
 
     // 추천 대상을 빼기 전에 전체 목록으로 상위 작업을 판별한다.
     const parentIds = new Set(
