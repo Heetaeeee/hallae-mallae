@@ -131,8 +131,8 @@ function hiddenSlot(task, members, summary) {
     el('div', { className: 'between' }, el('h3', {}, '크기 추정'),
       el('span', { className: 'badge' }, `${done.length} / ${members.length} 제출`)),
     el('p', { className: 'sub' }, done.length
-      ? `${done.map((id) => nameOf(members, id)).join(', ')} 님이 제출했습니다. 값은 전원이 낸 뒤 함께 공개됩니다.`
-      : '아직 아무도 내지 않았습니다. 값은 전원이 낸 뒤 함께 공개됩니다.'),
+      ? `${done.map((id) => nameOf(members, id)).join(', ')} 님이 제출했습니다. 값은 정원이 차고 등록된 전원이 낸 뒤 함께 공개됩니다.`
+      : '아직 아무도 내지 않았습니다. 값은 정원이 차고 등록된 전원이 낸 뒤 함께 공개됩니다.'),
     estimateForm(task, members, { label: '추정 제출', primary: true, preferIds: notYet }));
 }
 
