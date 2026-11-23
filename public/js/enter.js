@@ -76,7 +76,7 @@ function startView() {
     el('section', { className: 'panel stack' }, el('h2', {}, '팀 방으로 들어가기'),
       el('p', { className: 'sub' }, '팀원에게 받은 방 코드 6자리를 넣어 주세요.'), joinForm),
     el('section', { className: 'panel stack' }, el('h2', {}, '새 방 만들기'),
-      el('p', { className: 'sub' }, '팀 이름과 팀원 수를 정하면 방 코드가 나옵니다. 정원이 다 차야 추정이 공개됩니다.'), createForm),
+      el('p', { className: 'sub' }, '팀 이름과 팀원 수를 정하면 방 코드가 나옵니다. 정원이 차고 등록된 전원이 제출하면 추정이 공개됩니다.'), createForm),
     el('section', { className: 'panel stack' }, el('h2', {}, '먼저 둘러보기'),
       el('p', { className: 'sub' }, '예시 팀이 들어 있는 체험 방을 새로 만들어 들어갑니다. 다른 사람과 섞이지 않습니다.'),
       el('div', {}, demoButton), demoError));
@@ -117,9 +117,8 @@ function showRoom(room, { created = false, demoMembers = null } = {}) {
     }
     try {
       const members = demoMembers ?? await api('/api/members', { headers: { 'Content-Type': 'application/json', 'X-Room-Code': room.code } });
-      // 합의 대기: 팀원 API 가 아직 방 단위가 아니면 기본 방 목록(대개 빈 목록)이 온다 — 빈 칸 대신 이유를 알린다
       if (!members.length) {
-        pickBox.replaceChildren(el('p', { className: 'sub' }, '지금은 이 방의 팀원 목록을 불러올 수 없습니다. 팀원 API 가 방 단위로 바뀐 뒤 이름을 고를 수 있습니다.'));
+        pickBox.replaceChildren(el('p', { className: 'sub' }, '아직 들어온 팀원이 없습니다.'));
         return;
       }
       pickBox.replaceChildren(el('div', { className: 'row' }, ...members.map((m) => {
@@ -144,6 +143,7 @@ function showRoom(room, { created = false, demoMembers = null } = {}) {
       el('p', { className: 'sub' }, '이름만 받습니다. 학번 · 연락처는 적지 마세요.'), firstTime),
     el('section', { className: 'panel stack' }, el('h2', {}, demoMembers ? '누구로 둘러볼까요' : '기존 팀원'),
       el('p', { className: 'sub' }, demoMembers ? '예시 팀원 중 한 명을 골라 들어갑니다.' : '이미 들어온 적이 있으면 내 이름을 골라 주세요.'),
+      demoMembers ? null : el('p', { className: 'sub' }, '이름만 고르면 들어갑니다. 본인 확인은 하지 않습니다.'),
       pickBox, pickError));
   loadMembers();
   if (!full && !demoMembers) name.focus();
@@ -151,15 +151,20 @@ function showRoom(room, { created = false, demoMembers = null } = {}) {
 
 // ---------- 시작: 입장 코드가 꺼져 있으면 안내만 ----------
 
-if (root) {
-  // shortcut: 방 API 가 꺼지면 모든 /api/rooms 가 "요청한 경로를 찾을 수 없습니다." 404 라 그 문장으로 판별한다. B 가 상태 API 를 두면 그걸로 바꾼다
-  fetch('/api/rooms/AAAAAA').then((r) => r.json()).then((body) => {
-    if (body?.error === '요청한 경로를 찾을 수 없습니다.') {
-      root.replaceChildren(el('section', { className: 'panel stack' }, el('h2', {}, '입장 코드가 아직 꺼져 있습니다'),
-        el('p', { className: 'sub' }, '지금은 팀 하나로 동작합니다. 바로 시작하면 됩니다.'),
-        el('div', {}, el('a', { className: 'btn btn--primary', href: './' }, '바로 시작하기'))));
-    } else {
-      startView();
-    }
-  }).catch(startView);
+// 입장 코드 스위치는 공개 설정(GET /api/config 의 roomsEnabled)으로 본다 — 리뷰 #60 합의
+function checkConfig() {
+  api('/api/config').then(({ roomsEnabled }) => {
+    if (roomsEnabled) return startView();
+    root.replaceChildren(el('section', { className: 'panel stack' }, el('h2', {}, '입장 코드가 아직 꺼져 있습니다'),
+      el('p', { className: 'sub' }, '지금은 팀 하나로 동작합니다. 바로 시작하면 됩니다.'),
+      el('div', {}, el('a', { className: 'btn btn--primary', href: './' }, '바로 시작하기'))));
+  }).catch((err) => {
+    // 켜졌는지 모르는 채로 입장 폼을 보여 주지 않는다
+    const retry = el('button', { className: 'btn btn--primary', type: 'button' }, '다시 시도');
+    retry.addEventListener('click', checkConfig);
+    root.replaceChildren(el('section', { className: 'panel stack' }, el('h2', {}, '설정을 불러오지 못했습니다'),
+      el('p', { className: 'msg-error', role: 'alert' }, messageOf(err)), el('div', {}, retry)));
+  });
 }
+
+if (root) checkConfig();
