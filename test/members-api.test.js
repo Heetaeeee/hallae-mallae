@@ -9,6 +9,7 @@ const e = (hours) => ({ hours, reason: '' });
 
 async function withApi(run) {
   let db = {
+    size: 3,
     members: [{ id: 'm1', name: '김권섭', availableHours: 10 }, { id: 'm2', name: '박지호', availableHours: 10 }, { id: 'm3', name: '우희태', availableHours: 10 }],
     tasks: [
       // m3 만 안 낸 작업 — m3 을 지우면 공개돼야 한다
@@ -18,7 +19,7 @@ async function withApi(run) {
   };
   const app = express();
   app.use(express.json());
-  app.use('/api/members', createMembersRouter(() => structuredClone(db), (next) => { db = next; }));
+  app.use('/api/members', createMembersRouter(() => structuredClone(db), (code, next) => { db = next; }));
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}/api/members`;
@@ -70,5 +71,22 @@ test('지운 사람이 낸 추정은 남기되 공개 값에서는 빠진다', a
     const t = saved().tasks.find((x) => x.id === 'wait');
     assert.equal('m2' in t.estimates, true);
     assert.equal(t.estimatesRevealed, false); // m3 이 아직 안 냄
+  });
+});
+
+test('팀원을 지우면 정원도 1 줄고, 줄어든 정원이 남은 인원보다 크면 공개하지 않는다', async () => {
+  await withApi(async ({ del, saved }) => {
+    const r = await del('m3');
+    assert.equal(r.status, 200);
+    assert.equal(saved().size, 2);
+  });
+  await withApi(async ({ del, saved }) => {
+    // 정원 4 · 팀원 3 인 방 — m3 을 지워도 정원 3 에 2명뿐이라 아직 공개하면 안 된다
+    const before = saved();
+    before.size = 4;
+    const r = await del('m3');
+    assert.equal(r.status, 200);
+    assert.equal(saved().size, 3);
+    assert.equal(saved().tasks.find((t) => t.id === 'wait').estimatesRevealed, false);
   });
 });
