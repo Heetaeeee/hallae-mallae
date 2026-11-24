@@ -1,6 +1,6 @@
 // A 김권섭 — #breakdown (큰 작업 나누기) · #sizing (크기 추정), sizing.html
 // 서버에서 온 글자는 전부 textContent 로만 넣는다. 추정값은 GET /api/estimates 의 요약만 쓴다.
-import { api, refresh } from './api.js';
+import { api, refresh, savedRoom } from './api.js';
 
 const slot = document.querySelector('#sizing');
 const LAST_MEMBER = 'sizing:lastMember';
@@ -53,6 +53,13 @@ function daysLeft(dueDate) {
   return Math.round((utc(dueDate) - utc(today)) / 86_400_000);
 }
 
+// 입장 화면에서 고른 팀원 — 이 방 팀원이면 그 사람으로 제출하고 "누구" 칸을 없앤다 (신원 확인은 하지 않음)
+// 입장 코드가 꺼져 있거나 저장된 팀원이 지워졌으면 null → 예전처럼 고르는 칸
+function enteredMember(members) {
+  const id = savedRoom()?.memberId;
+  return members.some((m) => m.id === id) ? id : null;
+}
+
 function rememberedMember() {
   try { return localStorage.getItem(LAST_MEMBER); } catch { return null; }
 }
@@ -89,9 +96,10 @@ function cardHead(task, tasks, members, inGroup = false) {
   ];
 }
 
-// ---------- 추정 입력 줄: 누구 · 예상 시간 · 근거 ----------
+// ---------- 추정 입력 줄: (누구) · 예상 시간 · 근거 ----------
 
 function estimateForm(task, members, { label, primary, preferIds }) {
+  const me = enteredMember(members);
   const remembered = rememberedMember();
   const pick = members.some((m) => m.id === remembered) ? remembered : preferIds[0] ?? members[0].id;
   // name 은 다시 그릴 때 입력값을 되살리는 열쇠, default* 는 "사람이 고친 칸"을 가려내는 기준 (fill 참고)
@@ -102,7 +110,8 @@ function estimateForm(task, members, { label, primary, preferIds }) {
   const error = el('p', { className: 'msg-error', role: 'alert' });
 
   const form = el('form', { className: 'stack', noValidate: true },
-    el('div', { className: 'row' }, field('누구의 추정인가요', memberSelect), field('예상 시간', hours, 'field field--s')),
+    me ? el('p', { className: 'sub' }, `${nameOf(members, me)} 님의 추정으로 제출합니다.`) : null,
+    el('div', { className: 'row' }, me ? null : field('누구의 추정인가요', memberSelect), field('예상 시간', hours, 'field field--s')),
     field('근거 (선택)', reason),
     el('div', {}, button),
     error);
@@ -111,9 +120,9 @@ function estimateForm(task, members, { label, primary, preferIds }) {
     act(button, error, async () => {
       await api(`/api/tasks/${task.id}/estimates`, {
         method: 'POST',
-        body: { memberId: memberSelect.value, hours: hours.valueAsNumber, reason: reason.value.trim() || undefined },
+        body: { memberId: me ?? memberSelect.value, hours: hours.valueAsNumber, reason: reason.value.trim() || undefined },
       });
-      rememberMember(memberSelect.value);
+      if (!me) rememberMember(memberSelect.value);
       // 옆 사람이 내 값을 보지 못하게 바로 비운다 (refresh 로 다시 그려지기 전에도)
       hours.value = '';
       reason.value = '';
@@ -199,7 +208,7 @@ function revealedSlot(task, members, summary) {
     notYet.length ? el('p', { className: 'sub' }, `${notYet.map((id) => nameOf(members, id)).join(', ')} 님은 아직 내지 않았습니다.`) : null,
     historyList(members, summary.history),
     // 이미 낸 사람은 고치고(버전이 쌓인다), 공개 뒤 들어온 사람은 여기서 처음 낸다
-    estimateForm(task, members, { label: notYet.length ? '추정 제출' : '추정 고치기', primary: false, preferIds: notYet }),
+    estimateForm(task, members, { label: (enteredMember(members) ? notYet.includes(enteredMember(members)) : notYet.length) ? '추정 제출' : '추정 고치기', primary: false, preferIds: notYet }),
     // 확정칸은 공개된 뒤에만 — 서버(C 의 PATCH, P4)도 공개 전 hours 를 400 으로 거절하고, 화면은 애초에 확정칸을 그리지 않는다
     confirmForm(task, summary.median));
 }
