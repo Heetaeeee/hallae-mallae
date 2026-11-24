@@ -4,7 +4,7 @@ import { api, refresh } from './api.js';
 
 const slot = document.querySelector('#sizing');
 const LAST_MEMBER = 'sizing:lastMember';
-const COLLAPSED = 'sizing:collapsed'; // 접어 둔 큰 작업 묶음 id 목록 — 다시 그리거나 새로고침해도 접힌 채로
+const COLLAPSED = 'sizing:collapsed'; // 접어 둔 묶음 '칸:큰 작업 id' 목록 — 다시 그리거나 새로고침해도 접힌 채로
 
 // el('p', { className: 'sub' }, '글자', 다른요소) — 문자열 자식은 글자로만 들어간다
 function el(tag, props = {}, ...children) {
@@ -131,8 +131,8 @@ function hiddenSlot(task, members, summary) {
     el('div', { className: 'between' }, el('h3', {}, '크기 추정'),
       el('span', { className: 'badge' }, `${done.length} / ${members.length} 제출`)),
     el('p', { className: 'sub' }, done.length
-      ? `${done.map((id) => nameOf(members, id)).join(', ')} 님이 제출했습니다. 값은 전원이 낸 뒤 함께 공개됩니다.`
-      : '아직 아무도 내지 않았습니다. 값은 전원이 낸 뒤 함께 공개됩니다.'),
+      ? `${done.map((id) => nameOf(members, id)).join(', ')} 님이 제출했습니다. 값은 정원이 차고 등록된 전원이 낸 뒤 함께 공개됩니다.`
+      : '아직 아무도 내지 않았습니다. 값은 정원이 차고 등록된 전원이 낸 뒤 함께 공개됩니다.'),
     estimateForm(task, members, { label: '추정 제출', primary: true, preferIds: notYet }));
 }
 
@@ -266,7 +266,8 @@ if (slot) {
 
     // 한 칸의 작업을 큰 작업별로 묶는다. 세부 작업이 없는 작업은 혼자 카드 하나. 순서는 등록 순서
     // 묶음은 접을 수 있다 — 접으면 제목과 "세부 n개 · 확정 k / n" 만 남아 목록을 짧게 볼 수 있다
-    function grouped(list) {
+    // 같은 큰 작업이 두 칸에 나뉘어 있어도 칸마다 따로 접는다(11/24) — 그래서 기억하는 키는 '칸:큰 작업 id'
+    function grouped(list, side) {
       const nodes = [];
       const seen = new Set();
       for (const t of list) {
@@ -275,24 +276,22 @@ if (slot) {
         if (seen.has(parent.id)) continue;
         seen.add(parent.id);
         const all = own.filter((k) => k.parentId === parent.id);
-        const box = el('details', { className: 'group', open: !collapsed.has(parent.id) },
+        const key = `${side}:${parent.id}`;
+        const box = el('details', { className: 'group', open: !collapsed.has(key) },
           el('summary', {}, el('strong', {}, parent.title), ' ',
             el('span', { className: 'badge' }, `세부 ${all.length}개 · 확정 ${all.filter((k) => k.hours != null).length} / ${all.length}`)),
           el('div', { className: 'stack' }, ...list.filter((k) => k.parentId === parent.id).map((k) => cardOf(k, true))));
-        box.dataset.parent = parent.id;
         box.addEventListener('toggle', () => {
-          if (box.open) collapsed.delete(parent.id); else collapsed.add(parent.id);
+          if (box.open) collapsed.delete(key); else collapsed.add(key);
           saveCollapsed();
-          // 세부 작업이 두 칸에 나뉘어 있으면 같은 큰 작업 묶음이 두 개 — 함께 접고 편다
-          slot.querySelectorAll(`details.group[data-parent="${CSS.escape(parent.id)}"]`).forEach((d) => { d.open = box.open; });
         });
         nodes.push(box);
       }
       return nodes;
     }
-    const column = (title, list, emptyText) => el('section', { className: 'stack', ariaLabel: title },
+    const column = (side, title, list, emptyText) => el('section', { className: 'stack', ariaLabel: title },
       el('div', { className: 'between' }, el('h3', {}, title), el('span', { className: 'badge' }, String(list.length))),
-      ...(list.length ? grouped(list) : [el('p', { className: 'sub' }, emptyText)]));
+      ...(list.length ? grouped(list, side) : [el('p', { className: 'sub' }, emptyText)]));
 
     // 묶음이 있을 때만 "모두 접기 · 모두 펼치기"
     const setAll = (open) => slot.querySelectorAll('details.group').forEach((d) => { d.open = open; });
@@ -304,8 +303,8 @@ if (slot) {
     // 넓은 화면은 왼쪽 "추정 중" · 오른쪽 "크기 확정", 640px 이하는 위아래 (R6)
     // shortcut: 카드를 통째로 다시 그리고 입력값 · 접힌 묶음만 되살린다 — 커서 위치 · 펼친 수정 기록은 닫힌다. 불편하면 바뀐 카드만 갱신
     fill(...[toolbar, el('div', { className: 'split' },
-      column('추정 중', own.filter((t) => t.hours == null), '추정할 작업이 없습니다.'),
-      column('크기 확정', own.filter((t) => t.hours != null), '아직 크기가 확정된 작업이 없습니다.'))].filter(Boolean));
+      column('open', '추정 중', own.filter((t) => t.hours == null), '추정할 작업이 없습니다.'),
+      column('sized', '크기 확정', own.filter((t) => t.hours != null), '아직 크기가 확정된 작업이 없습니다.'))].filter(Boolean));
   });
 }
 
