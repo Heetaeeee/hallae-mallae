@@ -3,10 +3,14 @@ import { Router } from 'express';
 import { loadRoom, saveRoom } from '../lib/store.js';
 import { estimateSummary, addVersion } from '../lib/estimate.js';
 
-// 방 코드(req.roomCode)는 공용 미들웨어가 정한다. 공개 조건에 방 정원(db.size)을 넘긴다 — 입장 코드가 꺼져 있으면 정원은 등록 인원과 같아 지금과 같다
-// 테스트는 메모리 데이터를 넘긴다
-export function createEstimatesRouter(loadDb = loadRoom, saveDb = saveRoom) {
+// 방 코드(req.roomCode)는 공용 미들웨어가 정한다. 테스트는 메모리 데이터와 스위치를 넘긴다
+// 입장 코드가 켜져 있을 때만 공개 조건에 방 정원(db.size)을 넘긴다 — 꺼져 있으면 예전처럼 등록된 전원 기준
+// (방별 형식으로 옮긴 기본 방의 정원이 등록 인원보다 커도 꺼짐 상태에서는 공개가 막히지 않게)
+export function createEstimatesRouter(loadDb = loadRoom, saveDb = saveRoom, {
+  enabled = () => process.env.ROOMS_ENABLED === '1'
+} = {}) {
   const router = Router();
+  const sizeOf = (db) => (enabled() ? db.size : null);
 
   // app.js 에서 /api 에 붙어 있다 → POST /api/tasks/:id/estimates
   router.post('/tasks/:id/estimates', (req, res) => {
@@ -29,7 +33,7 @@ export function createEstimatesRouter(loadDb = loadRoom, saveDb = saveRoom) {
     // 공개 전에는 같은 사람이 다시 내면 조용히 덮어쓰고, 공개 뒤에는 고칠 때마다 버전이 쌓인다
     const wasRevealed = Boolean(task.estimatesRevealed);
     task.estimates = { ...task.estimates, [memberId]: { hours, reason: reason?.trim() ?? '' } };
-    const summary = estimateSummary(task.estimates, memberIds(db), wasRevealed, db.size);
+    const summary = estimateSummary(task.estimates, memberIds(db), wasRevealed, sizeOf(db));
     // 한 번 공개되면 기록해 둔다 — 나중에 팀원이 늘어도 다시 가려지지 않게
     task.estimatesRevealed = summary.revealed;
     task.estimateHistory = addVersion(task.estimateHistory ?? [], summary, wasRevealed ? memberId : null, new Date().toISOString());
@@ -43,7 +47,7 @@ export function createEstimatesRouter(loadDb = loadRoom, saveDb = saveRoom) {
     const db = loadDb(req.roomCode);
     const ids = memberIds(db);
     res.json(Object.fromEntries(db.tasks.map((t) =>
-      [t.id, publicSummary(t, estimateSummary(t.estimates ?? {}, ids, t.estimatesRevealed, db.size))])));
+      [t.id, publicSummary(t, estimateSummary(t.estimates ?? {}, ids, t.estimatesRevealed, sizeOf(db)))])));
   });
 
   return router;
