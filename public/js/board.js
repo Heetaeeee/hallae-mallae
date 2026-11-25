@@ -1,6 +1,7 @@
 // C 우희태 — #task-form · #tasks · #members · #progress (board.html, 홈의 #progress)
 // 페이지마다 있는 자리만 그린다. 서버에서 온 글자는 전부 textContent 로만 넣는다.
 import { api, refresh } from './api.js';
+import { subtaskSummary, withDescendants } from './subtasks.js';
 
 // 폼은 noValidate — 브라우저 기본 경고 대신 서버의 안내 문장을 폼 아래에 띄운다
 const $ = (s) => document.querySelector(s);
@@ -49,8 +50,8 @@ function daysLeft(dueDate) {
   return Math.round((utc(dueDate) - utc(today)) / 86_400_000);
 }
 
-function meter(label, valueText, percent) {
-  return el('div', { className: 'meter' },
+function meter(label, valueText, percent, className = 'meter') {
+  return el('div', { className },
     el('div', { className: 'between' }, label, el('strong', {}, valueText)),
     el('div', { className: 'bar bar--100', role: 'img', ariaLabel: `${valueText}` },
       el('span', { className: 'bar-now', style: `--v:${percent}` })));
@@ -161,14 +162,13 @@ function taskCard(task, members, tasks) {
     owner ? el('span', { className: 'badge badge--team' }, `담당 ${owner.name}`)
       : el('span', { className: 'badge badge--todo' }, '담당 미정'));
 
+  // 보드는 상태별 칸이라 세부 작업이 흩어진다. 묶지 않고 큰 작업엔 진행 요약, 세부 작업엔 큰 작업 이름으로 잇는다
+  const sub = subtaskSummary(task.id, tasks);
+
   const remove = el('button', { className: 'btn btn--quiet btn--s', type: 'button', ariaLabel: `${task.title} 삭제` }, '삭제');
   remove.addEventListener('click', () => {
-    // 서버 withDescendants 와 같은 범위 — 세부 작업의 세부 작업까지 센다
-    const ids = new Set([task.id]);
-    for (let grew = true; grew;) {
-      grew = false;
-      for (const t of tasks) if (ids.has(t.parentId) && !ids.has(t.id)) { ids.add(t.id); grew = true; }
-    }
+    // 세부 작업의 세부 작업까지 센다
+    const ids = withDescendants(task.id, tasks);
     const children = ids.size - 1;
     // 마지막 세부 작업을 지우면 상위 작업이 일반 작업으로 돌아가 진행률 · 부담률에 다시 들어간다
     const parent = tasks.find((t) => t.id === task.parentId);
@@ -179,9 +179,10 @@ function taskCard(task, members, tasks) {
     act(remove, error, () => api(`/api/tasks/${task.id}`, { method: 'DELETE' }));
   });
 
-  return el('article', { className: 'card stack' },
+  return el('article', { className: parent ? 'card card--sub stack' : 'card stack' },
+    parent ? el('p', { className: 'badge badge--parent', title: parent.title }, parent.title, el('span', { className: 'sr-only' }, '의 세부 작업')) : null,
     el('div', { className: 'between' }, el('h3', {}, task.title), status),
-    parent ? el('p', { className: 'sub' }, `↳ ${parent.title}의 세부 작업`) : null,
+    sub ? meter(`세부 작업 ${sub.total}개 · 완료 ${sub.done}개`, `${Math.round((sub.done / sub.total) * 100)}%`, (sub.done / sub.total) * 100, 'meter meter--s') : null,
     badges,
     el('div', { className: 'slot stack' },
       el('div', { className: 'between' }, field('담당자', assignee), remove),
