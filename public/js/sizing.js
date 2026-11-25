@@ -1,10 +1,10 @@
 // A 김권섭 — #breakdown (큰 작업 나누기) · #sizing (크기 추정), sizing.html
 // 서버에서 온 글자는 전부 textContent 로만 넣는다. 추정값은 GET /api/estimates 의 요약만 쓴다.
-import { api, refresh } from './api.js';
+import { api, refresh, savedRoom } from './api.js';
 
 const slot = document.querySelector('#sizing');
 const LAST_MEMBER = 'sizing:lastMember';
-const COLLAPSED = 'sizing:collapsed'; // 접어 둔 큰 작업 묶음 id 목록 — 다시 그리거나 새로고침해도 접힌 채로
+const COLLAPSED = 'sizing:collapsed'; // 접어 둔 묶음 '칸:큰 작업 id' 목록 — 다시 그리거나 새로고침해도 접힌 채로
 
 // el('p', { className: 'sub' }, '글자', 다른요소) — 문자열 자식은 글자로만 들어간다
 function el(tag, props = {}, ...children) {
@@ -53,6 +53,15 @@ function daysLeft(dueDate) {
   return Math.round((utc(dueDate) - utc(today)) / 86_400_000);
 }
 
+// 입장 화면에서 고른 팀원 — 이 방 팀원이면 그 사람으로 제출하고 "누구" 칸을 없앤다 (신원 확인은 하지 않음)
+// 입장 코드가 꺼져 있거나(설정을 못 불러온 때 포함) 저장된 팀원이 지워졌으면 null → 예전처럼 고르는 칸
+let roomsEnabled = false;
+function enteredMember(members) {
+  if (!roomsEnabled) return null; // 꺼져 있어도 예전 입장 정보는 브라우저에 남아 있을 수 있다 (#63 리뷰)
+  const id = savedRoom()?.memberId;
+  return members.some((m) => m.id === id) ? id : null;
+}
+
 function rememberedMember() {
   try { return localStorage.getItem(LAST_MEMBER); } catch { return null; }
 }
@@ -89,9 +98,10 @@ function cardHead(task, tasks, members, inGroup = false) {
   ];
 }
 
-// ---------- 추정 입력 줄: 누구 · 예상 시간 · 근거 ----------
+// ---------- 추정 입력 줄: (누구) · 예상 시간 · 근거 ----------
 
 function estimateForm(task, members, { label, primary, preferIds }) {
+  const me = enteredMember(members);
   const remembered = rememberedMember();
   const pick = members.some((m) => m.id === remembered) ? remembered : preferIds[0] ?? members[0].id;
   // name 은 다시 그릴 때 입력값을 되살리는 열쇠, default* 는 "사람이 고친 칸"을 가려내는 기준 (fill 참고)
@@ -102,7 +112,8 @@ function estimateForm(task, members, { label, primary, preferIds }) {
   const error = el('p', { className: 'msg-error', role: 'alert' });
 
   const form = el('form', { className: 'stack', noValidate: true },
-    el('div', { className: 'row' }, field('누구의 추정인가요', memberSelect), field('예상 시간', hours, 'field field--s')),
+    me ? el('p', { className: 'sub' }, `${nameOf(members, me)} 님의 추정으로 제출합니다.`) : null,
+    el('div', { className: 'row' }, me ? null : field('누구의 추정인가요', memberSelect), field('예상 시간', hours, 'field field--s')),
     field('근거 (선택)', reason),
     el('div', {}, button),
     error);
@@ -111,9 +122,9 @@ function estimateForm(task, members, { label, primary, preferIds }) {
     act(button, error, async () => {
       await api(`/api/tasks/${task.id}/estimates`, {
         method: 'POST',
-        body: { memberId: memberSelect.value, hours: hours.valueAsNumber, reason: reason.value.trim() || undefined },
+        body: { memberId: me ?? memberSelect.value, hours: hours.valueAsNumber, reason: reason.value.trim() || undefined },
       });
-      rememberMember(memberSelect.value);
+      if (!me) rememberMember(memberSelect.value);
       // 옆 사람이 내 값을 보지 못하게 바로 비운다 (refresh 로 다시 그려지기 전에도)
       hours.value = '';
       reason.value = '';
@@ -131,8 +142,8 @@ function hiddenSlot(task, members, summary) {
     el('div', { className: 'between' }, el('h3', {}, '크기 추정'),
       el('span', { className: 'badge' }, `${done.length} / ${members.length} 제출`)),
     el('p', { className: 'sub' }, done.length
-      ? `${done.map((id) => nameOf(members, id)).join(', ')} 님이 제출했습니다. 값은 전원이 낸 뒤 함께 공개됩니다.`
-      : '아직 아무도 내지 않았습니다. 값은 전원이 낸 뒤 함께 공개됩니다.'),
+      ? `${done.map((id) => nameOf(members, id)).join(', ')} 님이 제출했습니다. 값은 정원이 차고 등록된 전원이 낸 뒤 함께 공개됩니다.`
+      : '아직 아무도 내지 않았습니다. 값은 정원이 차고 등록된 전원이 낸 뒤 함께 공개됩니다.'),
     estimateForm(task, members, { label: '추정 제출', primary: true, preferIds: notYet }));
 }
 
@@ -199,7 +210,7 @@ function revealedSlot(task, members, summary) {
     notYet.length ? el('p', { className: 'sub' }, `${notYet.map((id) => nameOf(members, id)).join(', ')} 님은 아직 내지 않았습니다.`) : null,
     historyList(members, summary.history),
     // 이미 낸 사람은 고치고(버전이 쌓인다), 공개 뒤 들어온 사람은 여기서 처음 낸다
-    estimateForm(task, members, { label: notYet.length ? '추정 제출' : '추정 고치기', primary: false, preferIds: notYet }),
+    estimateForm(task, members, { label: (enteredMember(members) ? notYet.includes(enteredMember(members)) : notYet.length) ? '추정 제출' : '추정 고치기', primary: false, preferIds: notYet }),
     // 확정칸은 공개된 뒤에만 — 서버(C 의 PATCH, P4)도 공개 전 hours 를 400 으로 거절하고, 화면은 애초에 확정칸을 그리지 않는다
     confirmForm(task, summary.median));
 }
@@ -254,7 +265,9 @@ if (slot) {
     }
     let summaries;
     try {
-      summaries = await api('/api/estimates');
+      let config;
+      [summaries, config] = await Promise.all([api('/api/estimates'), api('/api/config').catch(() => null)]);
+      roomsEnabled = config?.roomsEnabled === true;
     } catch (error) {
       fill(el('p', { className: 'msg-error', role: 'alert' }, `추정 현황을 불러오지 못했습니다. ${messageOf(error)}`));
       return;
@@ -266,7 +279,8 @@ if (slot) {
 
     // 한 칸의 작업을 큰 작업별로 묶는다. 세부 작업이 없는 작업은 혼자 카드 하나. 순서는 등록 순서
     // 묶음은 접을 수 있다 — 접으면 제목과 "세부 n개 · 확정 k / n" 만 남아 목록을 짧게 볼 수 있다
-    function grouped(list) {
+    // 같은 큰 작업이 두 칸에 나뉘어 있어도 칸마다 따로 접는다(11/24) — 그래서 기억하는 키는 '칸:큰 작업 id'
+    function grouped(list, side) {
       const nodes = [];
       const seen = new Set();
       for (const t of list) {
@@ -275,24 +289,22 @@ if (slot) {
         if (seen.has(parent.id)) continue;
         seen.add(parent.id);
         const all = own.filter((k) => k.parentId === parent.id);
-        const box = el('details', { className: 'group', open: !collapsed.has(parent.id) },
+        const key = `${side}:${parent.id}`;
+        const box = el('details', { className: 'group', open: !collapsed.has(key) },
           el('summary', {}, el('strong', {}, parent.title), ' ',
             el('span', { className: 'badge' }, `세부 ${all.length}개 · 확정 ${all.filter((k) => k.hours != null).length} / ${all.length}`)),
           el('div', { className: 'stack' }, ...list.filter((k) => k.parentId === parent.id).map((k) => cardOf(k, true))));
-        box.dataset.parent = parent.id;
         box.addEventListener('toggle', () => {
-          if (box.open) collapsed.delete(parent.id); else collapsed.add(parent.id);
+          if (box.open) collapsed.delete(key); else collapsed.add(key);
           saveCollapsed();
-          // 세부 작업이 두 칸에 나뉘어 있으면 같은 큰 작업 묶음이 두 개 — 함께 접고 편다
-          slot.querySelectorAll(`details.group[data-parent="${CSS.escape(parent.id)}"]`).forEach((d) => { d.open = box.open; });
         });
         nodes.push(box);
       }
       return nodes;
     }
-    const column = (title, list, emptyText) => el('section', { className: 'stack', ariaLabel: title },
+    const column = (side, title, list, emptyText) => el('section', { className: 'stack', ariaLabel: title },
       el('div', { className: 'between' }, el('h3', {}, title), el('span', { className: 'badge' }, String(list.length))),
-      ...(list.length ? grouped(list) : [el('p', { className: 'sub' }, emptyText)]));
+      ...(list.length ? grouped(list, side) : [el('p', { className: 'sub' }, emptyText)]));
 
     // 묶음이 있을 때만 "모두 접기 · 모두 펼치기"
     const setAll = (open) => slot.querySelectorAll('details.group').forEach((d) => { d.open = open; });
@@ -304,8 +316,8 @@ if (slot) {
     // 넓은 화면은 왼쪽 "추정 중" · 오른쪽 "크기 확정", 640px 이하는 위아래 (R6)
     // shortcut: 카드를 통째로 다시 그리고 입력값 · 접힌 묶음만 되살린다 — 커서 위치 · 펼친 수정 기록은 닫힌다. 불편하면 바뀐 카드만 갱신
     fill(...[toolbar, el('div', { className: 'split' },
-      column('추정 중', own.filter((t) => t.hours == null), '추정할 작업이 없습니다.'),
-      column('크기 확정', own.filter((t) => t.hours != null), '아직 크기가 확정된 작업이 없습니다.'))].filter(Boolean));
+      column('open', '추정 중', own.filter((t) => t.hours == null), '추정할 작업이 없습니다.'),
+      column('sized', '크기 확정', own.filter((t) => t.hours != null), '아직 크기가 확정된 작업이 없습니다.'))].filter(Boolean));
   });
 }
 
