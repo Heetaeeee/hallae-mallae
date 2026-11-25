@@ -3,8 +3,10 @@ import { loadRoom, saveRoom, newId } from '../lib/store.js';
 import { validateMember } from '../lib/validate.js';
 import { revealAfterMemberRemoved } from '../lib/estimate.js';
 
-// 방 코드(req.roomCode)는 공용 미들웨어가 정한다. 테스트는 메모리 데이터를 넘긴다
-export function createMembersRouter(loadDb = loadRoom, saveDb = saveRoom) {
+// 방 코드(req.roomCode)는 공용 미들웨어가 정한다. 테스트는 메모리 데이터와 스위치를 넘긴다 (estimates.js 와 같은 방식)
+export function createMembersRouter(loadDb = loadRoom, saveDb = saveRoom, {
+  enabled = () => process.env.ROOMS_ENABLED === '1'
+} = {}) {
   const router = Router();
 
   router.get('/', (req, res) => {
@@ -12,6 +14,8 @@ export function createMembersRouter(loadDb = loadRoom, saveDb = saveRoom) {
   });
 
   router.post('/', (req, res) => {
+    // 입장 코드가 켜지면 팀원은 입장(POST /api/rooms/:code/join)으로만 생긴다 — 정원 검사도 그쪽에 있다
+    if (enabled()) return res.status(400).json({ error: '팀원은 입장 화면에서 이름을 넣고 들어옵니다.' });
     const db = loadDb(req.roomCode);
     const v = validateMember(req.body, { takenNames: db.members.map((m) => m.name) });
     if (!v.ok) return res.status(400).json({ error: v.error });
@@ -35,7 +39,7 @@ export function createMembersRouter(loadDb = loadRoom, saveDb = saveRoom) {
 
   // 팀원 삭제 (STATUS 5장 "정한 것 5") — 맡은 작업은 담당 미정, 낸 추정은 남기되 계산에서 빠짐,
   // 삭제로 "남은 전원이 냄" 이 채워진 작업은 A 의 함수로 그 자리에서 공개 기록을 남긴다
-  // 정원도 1 줄여서, 줄어든 정원으로 A 의 공개 조건을 본다
+  // 정원도 1 줄여서, 켜져 있으면 줄어든 정원으로 A 의 공개 조건을 본다 — 꺼져 있으면 등록된 전원 기준 (#64)
   router.delete('/:id', (req, res) => {
     const db = loadDb(req.roomCode);
     if (!db.members.some((m) => m.id === req.params.id)) return res.status(404).json({ error: '팀원을 찾을 수 없습니다.' });
@@ -46,7 +50,7 @@ export function createMembersRouter(loadDb = loadRoom, saveDb = saveRoom) {
     const unassigned = [];
     for (const t of db.tasks) {
       if (t.assigneeId === req.params.id) { t.assigneeId = null; unassigned.push(t.id); }
-      Object.assign(t, revealAfterMemberRemoved(t, ids, now, db.size));
+      Object.assign(t, revealAfterMemberRemoved(t, ids, now, enabled() ? db.size : null));
     }
     saveDb(req.roomCode, db);
     res.json({ deleted: req.params.id, unassigned });
