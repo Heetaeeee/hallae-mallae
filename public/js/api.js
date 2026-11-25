@@ -95,7 +95,10 @@ export function start() {
     try { localStorage.removeItem(ROOM_KEY); } catch { /* 위와 같음 */ }
     location.href = `enter.html?code=${encodeURIComponent(room.code)}`;
   });
-  refresh().catch((error) => {
+  const load = () => refresh().catch((error) => {
     document.querySelector('#app-error').textContent = `데이터를 불러오지 못했습니다. ${error.message}`;
   });
+  load();
+  // P5: 다른 탭에 있다 돌아오면 다시 불러와 다른 팀원이 바꾼 것을 보여 준다
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });
 }
