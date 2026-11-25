@@ -158,6 +158,7 @@ function taskCard(task, members, tasks) {
   const d = daysLeft(task.dueDate);
   const owner = members.find((m) => m.id === task.assigneeId);
   const parent = tasks.find((t) => t.id === task.parentId);
+  const kids = tasks.filter((t) => t.parentId === task.id);
   const badges = el('div', { className: 'badges' },
     d === null || task.status === 'DONE' ? null
       : d < 0 ? el('span', { className: 'badge badge--over' }, `지남 ${-d}일`)
@@ -189,6 +190,8 @@ function taskCard(task, members, tasks) {
   return el('article', { className: 'card stack' },
     el('div', { className: 'between' }, el('h3', {}, task.title), status),
     parent ? el('p', { className: 'sub' }, `↳ ${parent.title}의 세부 작업`) : null,
+    // 보드는 상태별 칸이라 세부 작업이 흩어지므로, 큰 작업 카드에 몇 개 중 몇 개 끝났는지 적어 잇는다 (DESIGN "보드(C) 제안")
+    kids.length ? el('p', { className: 'sub' }, `세부 작업 ${kids.length}개 · 완료 ${kids.filter((t) => t.status === 'DONE').length}`) : null,
     badges,
     el('div', { className: 'slot stack' },
       el('div', { className: 'between' }, field('담당자', assignee), remove),
