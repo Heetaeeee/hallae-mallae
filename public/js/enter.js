@@ -9,6 +9,8 @@ function el(tag, props = {}, ...children) {
   node.append(...children.filter((c) => c != null));
   return node;
 }
+// 빠진 칸(null)은 건너뛴다 — replaceChildren 에 null 을 넣으면 "null" 글자가 찍힌다
+const show = (...nodes) => root.replaceChildren(...nodes.filter((n) => n != null));
 const field = (label, input) => el('label', { className: 'field' }, label, input);
 // 네트워크 오류(서버에 닿지 못함)는 브라우저 영어 문장이라 바꿔 보여 준다. 서버 오류는 서버 문장 그대로
 const messageOf = (error) => (error instanceof TypeError ? '서버에 연결하지 못했습니다.' : error.message);
@@ -55,8 +57,10 @@ function startView() {
   }, { primary: false });
 
   const demoError = el('p', { className: 'msg-error', role: 'alert' });
-  // shortcut: 체험 방 API(POST /api/rooms/demo, A 2주차)가 아직 없어 잠가 둔다. 그 API 를 만들면 DEMO_READY 를 true 로
+  // 체험 방 (11/23 결정): API(POST /api/rooms/demo, A 2주차)를 만드는 동안은 `준비 중` 으로 잠그고,
+  // 기능 동결(11/28)까지 API 가 없으면 패널째 숨긴다 — 발표 화면에 잠긴 버튼이 남지 않게. API 를 만들면 DEMO_READY 를 true 로
   const DEMO_READY = false;
+  const FROZEN = new Date() >= new Date('2026-11-28T00:00:00+09:00');
   const demoButton = el('button', { className: 'btn', type: 'button', disabled: !DEMO_READY },
     DEMO_READY ? '체험 방으로 들어가기' : '체험 방으로 들어가기 (준비 중)');
   demoButton.addEventListener('click', async () => {
@@ -72,12 +76,12 @@ function startView() {
     }
   });
 
-  root.replaceChildren(
+  show(
     el('section', { className: 'panel stack' }, el('h2', {}, '팀 방으로 들어가기'),
       el('p', { className: 'sub' }, '팀원에게 받은 방 코드 6자리를 넣어 주세요.'), joinForm),
     el('section', { className: 'panel stack' }, el('h2', {}, '새 방 만들기'),
       el('p', { className: 'sub' }, '팀 이름과 팀원 수를 정하면 방 코드가 나옵니다. 정원이 차고 등록된 전원이 제출하면 추정이 공개됩니다.'), createForm),
-    el('section', { className: 'panel stack' }, el('h2', {}, '먼저 둘러보기'),
+    !DEMO_READY && FROZEN ? null : el('section', { className: 'panel stack' }, el('h2', {}, '먼저 둘러보기'),
       el('p', { className: 'sub' }, '예시 팀이 들어 있는 체험 방을 새로 만들어 들어갑니다. 다른 사람과 섞이지 않습니다.'),
       el('div', {}, demoButton), demoError));
   code.focus();
@@ -133,7 +137,7 @@ function showRoom(room, { created = false, demoMembers = null } = {}) {
     }
   }
 
-  root.replaceChildren(
+  show(
     el('section', { className: 'panel stack' },
       el('div', { className: 'between' }, el('h2', {}, room.name), el('span', { className: 'badge' }, `${room.memberCount} / ${room.size}명 입장`)),
       created ? el('p', { className: 'sub' }, '방을 만들었습니다. 이 코드를 팀원에게 알려 주세요.') : null,
