@@ -12,6 +12,7 @@ RUN npm ci --omit=dev
 COPY server.js ./
 COPY src ./src
 COPY public ./public
+COPY seed ./seed
 
 RUN mkdir -p /data && chown node:node /data
 
