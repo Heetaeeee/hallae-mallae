@@ -52,8 +52,8 @@ function daysLeft(dueDate) {
   return Math.round((utc(dueDate) - utc(today)) / 86_400_000);
 }
 
-function meter(label, valueText, percent) {
-  return el('div', { className: 'meter' },
+function meter(label, valueText, percent, className = 'meter') {
+  return el('div', { className },
     el('div', { className: 'between' }, label, el('strong', {}, valueText)),
     el('div', { className: 'bar bar--100', role: 'img', ariaLabel: `${valueText}` },
       el('span', { className: 'bar-now', style: `--v:${percent}` })));
@@ -162,6 +162,8 @@ function taskCard(task, members, tasks) {
   const owner = members.find((m) => m.id === task.assigneeId);
   const parent = tasks.find((t) => t.id === task.parentId);
   const kids = tasks.filter((t) => t.parentId === task.id);
+  const kidsDone = kids.filter((t) => t.status === 'DONE').length;
+  const kidsPercent = (kidsDone / kids.length) * 100;
   const badges = el('div', { className: 'badges' },
     d === null || task.status === 'DONE' ? null
       : d < 0 ? el('span', { className: 'badge badge--over' }, `지남 ${-d}일`)
@@ -190,11 +192,11 @@ function taskCard(task, members, tasks) {
     act(remove, error, () => api(`/api/tasks/${task.id}`, { method: 'DELETE' }));
   });
 
-  return el('article', { className: 'card stack' },
+  // 보드는 상태별 칸이라 세부 작업이 흩어진다. 묶지 않고 큰 작업엔 진행 막대, 세부 작업엔 큰 작업 이름으로 잇는다 (DESIGN "보드 카드만 다른 점")
+  return el('article', { className: parent ? 'card card--sub stack' : 'card stack' },
+    parent ? el('p', { className: 'badge badge--parent', title: parent.title }, parent.title, el('span', { className: 'sr-only' }, '의 세부 작업')) : null,
     el('div', { className: 'between' }, el('h3', {}, task.title), status),
-    parent ? el('p', { className: 'sub' }, `↳ ${parent.title}의 세부 작업`) : null,
-    // 보드는 상태별 칸이라 세부 작업이 흩어지므로, 큰 작업 카드에 몇 개 중 몇 개 끝났는지 적어 잇는다 (DESIGN "보드(C) 제안")
-    kids.length ? el('p', { className: 'sub' }, `세부 작업 ${kids.length}개 · 완료 ${kids.filter((t) => t.status === 'DONE').length}`) : null,
+    kids.length ? meter(`세부 작업 ${kids.length}개 · 완료 ${kidsDone}개`, `${Math.round(kidsPercent)}%`, kidsPercent, 'meter meter--s') : null,
     badges,
     el('div', { className: 'slot stack' },
       el('div', { className: 'between' }, field('담당자', assignee), remove),
