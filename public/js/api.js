@@ -42,8 +42,59 @@ export async function refresh() {
   document.dispatchEvent(new CustomEvent('data', { detail: { members, tasks } }));
 }
 
+// 입장 코드 스위치(GET /api/config). 한 페이지에서 한 번만 묻는다
+// 못 물어보면 꺼진 것으로 치지 않고 실패로 돌려주고, 다음에 부를 때 다시 묻는다 (#61 리뷰 · #60 합의)
+let config;
+export function roomsEnabled() {
+  config ??= api('/api/config').then((c) => c.roomsEnabled === true, (error) => { config = undefined; throw error; });
+  return config;
+}
+
+// 머리말 메뉴 아래에 "팀명 · 내 이름 · 나가기" (입장 코드가 켜져 있고 들어간 방이 있을 때만)
+function showRoomBar(room) {
+  const leave = Object.assign(document.createElement('button'), { type: 'button', className: 'btn btn--quiet btn--s', textContent: '나가기' });
+  leave.addEventListener('click', () => {
+    try { localStorage.removeItem(ROOM_KEY); } catch { /* 지우지 못해도 입장 화면에서 다시 고르면 된다 */ }
+    location.href = 'enter.html';
+  });
+  const text = Object.assign(document.createElement('span'), { id: 'room-who', textContent: `${room.roomName} · ${room.memberName}` });
+  const bar = Object.assign(document.createElement('p'), { className: 'between sub' });
+  bar.append(text, leave);
+  document.querySelector('header .nav')?.after(bar);
+}
+
+// 설정을 못 불러오면 꺼짐으로 넘기지 않고 알린 뒤 새로고침으로 다시 묻게 한다
+function showConfigError(error) {
+  const retry = Object.assign(document.createElement('button'), { type: 'button', className: 'btn btn--s', textContent: '다시 시도' });
+  retry.addEventListener('click', () => location.reload());
+  // #app-error 는 데이터를 새로 받으면 지워지므로 따로 둔다
+  const box = Object.assign(document.createElement('p'), { className: 'msg-error', role: 'alert' });
+  box.append(`설정을 불러오지 못했습니다. ${error.message} `, retry);
+  document.querySelector('#app-error')?.after(box);
+}
+
 // 페이지를 열 때 한 번. 각 화면 JS 가 'data' 를 듣기 시작한 뒤에 불러야 해서 HTML 맨 끝에서 부릅니다.
 export function start() {
+  const room = savedRoom();
+  roomsEnabled().then((on) => { if (on && room) showRoomBar(room); }, showConfigError);
+  document.addEventListener('data', async ({ detail }) => {
+    if (!room?.memberId) return;
+    const on = await roomsEnabled().catch(() => false); // 실패는 위 안내가 맡는다. 확인 못 한 채로 입장 화면에 보내지 않는다
+    if (!on) return;
+    const me = detail.members.find((m) => m.id === room.memberId);
+    if (me) {
+      // 이름을 고쳤으면 머리말과 저장값도 따라간다
+      if (me.name === room.memberName) return;
+      room.memberName = me.name;
+      try { localStorage.setItem(ROOM_KEY, JSON.stringify(room)); } catch { /* 머리말만 바꾼다 */ }
+      const who = document.querySelector('#room-who');
+      if (who) who.textContent = `${room.roomName} · ${room.memberName}`;
+      return;
+    }
+    // 저장된 내가 팀원 목록에서 지워졌으면 그 방의 입장 화면으로 보내 다시 고르게 한다
+    try { localStorage.removeItem(ROOM_KEY); } catch { /* 위와 같음 */ }
+    location.href = `enter.html?code=${encodeURIComponent(room.code)}`;
+  });
   refresh().catch((error) => {
     document.querySelector('#app-error').textContent = `데이터를 불러오지 못했습니다. ${error.message}`;
   });
