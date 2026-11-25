@@ -7,8 +7,9 @@ const $ = (s) => document.querySelector(s);
 const STATUS = { TODO: '할 일', DOING: '진행 중', DONE: '완료' };
 
 // el('p', { className: 'sub' }, '글자', 다른요소) — 문자열 자식은 글자로만 들어간다
-function el(tag, props = {}, ...children) {
+function el(tag, { dataset, ...props } = {}, ...children) {
   const node = Object.assign(document.createElement(tag), props);
+  Object.assign(node.dataset, dataset); // dataset 은 읽기 전용이라 따로 넣는다
   node.append(...children.filter((c) => c != null));
   return node;
 }
@@ -20,18 +21,24 @@ function field(label, input, className = 'field') {
 // 버튼을 잠근 채 요청 → 성공하면 refresh, 실패하면 서버 문장을 errorBox 에 띄운다
 // undo: 실패했을 때 바꾸던 값을 원래대로 돌리는 함수 (선택칸 · 입력칸)
 async function act(button, errorBox, fn, undo) {
-  button.disabled = true;
+  let keep;
+  // 버튼만 잠근다 — 두 번 눌려 두 번 저장되지 않게. 선택칸 · 입력칸을 잠그면 포커스가 body 로 빠져 Tab 이동이 사라진다
+  const lock = button.tagName === 'BUTTON';
+  if (lock) button.disabled = true;
   errorBox.textContent = '';
   let saved = false;
   try {
     await fn();
     saved = true;
+    // 다시 그리면 카드 · 팀원 줄이 새로 만들어져 키보드 위치가 맨 위로 간다 — 지금 있는 칸을 기억했다가 돌려놓는다
+    keep = document.activeElement?.dataset.focus;
     await refresh();
   } catch (error) {
     if (!saved) undo?.();
     errorBox.textContent = error.message;
   } finally {
-    button.disabled = false;
+    if (lock) button.disabled = false;
+    if (keep) document.querySelector(`[data-focus="${keep}"]`)?.focus();
   }
 }
 
@@ -115,12 +122,12 @@ function drawMembers(members, tasks) {
     return;
   }
   memberList.replaceChildren(...members.map((m) => {
-    const hours = el('input', { type: 'number', min: 0, step: 0.5, value: m.availableHours, ariaLabel: `${m.name} 이번 주 가능한 시간(시간)` });
+    const hours = el('input', { type: 'number', min: 0, step: 0.5, value: m.availableHours, dataset: { focus: `hours-${m.id}` }, ariaLabel: `${m.name} 이번 주 가능한 시간(시간)` });
     const error = el('p', { className: 'msg-error', role: 'alert' });
     hours.addEventListener('change', () =>
       act(hours, error, () => api(`/api/members/${m.id}`, { method: 'PATCH', body: { availableHours: hours.valueAsNumber } }),
         () => { hours.value = m.availableHours; }));
-    const remove = el('button', { className: 'btn btn--quiet btn--s', type: 'button', ariaLabel: `${m.name} 삭제` }, '삭제');
+    const remove = el('button', { className: 'btn btn--quiet btn--s', type: 'button', dataset: { focus: `remove-${m.id}` }, ariaLabel: `${m.name} 삭제` }, '삭제');
     remove.addEventListener('click', () => {
       const mine = tasks.filter((t) => t.assigneeId === m.id).length;
       const note = (mine > 0 ? `\n맡은 작업 ${mine}개는 담당 미정이 됩니다.` : '')
@@ -146,11 +153,11 @@ function taskCard(task, members, tasks) {
   const patch = (control, body, was) =>
     act(control, error, () => api(`/api/tasks/${task.id}`, { method: 'PATCH', body }), () => { control.value = was; });
 
-  const status = el('select', { className: 'status', ariaLabel: `${task.title} 상태` },
+  const status = el('select', { className: 'status', dataset: { focus: `status-${task.id}` }, ariaLabel: `${task.title} 상태` },
     ...Object.entries(STATUS).map(([value, label]) => el('option', { value, selected: task.status === value }, label)));
   status.addEventListener('change', () => patch(status, { status: status.value }, task.status));
 
-  const assignee = el('select', {},
+  const assignee = el('select', { dataset: { focus: `assignee-${task.id}` } },
     el('option', { value: '' }, '미정'),
     ...members.map((m) => el('option', { value: m.id, selected: task.assigneeId === m.id }, m.name)));
   assignee.addEventListener('change', () => patch(assignee, { assigneeId: assignee.value || null }, task.assigneeId ?? ''));
@@ -169,7 +176,7 @@ function taskCard(task, members, tasks) {
     owner ? el('span', { className: 'badge badge--team' }, `담당 ${owner.name}`)
       : el('span', { className: 'badge badge--todo' }, '담당 미정'));
 
-  const remove = el('button', { className: 'btn btn--quiet btn--s', type: 'button', ariaLabel: `${task.title} 삭제` }, '삭제');
+  const remove = el('button', { className: 'btn btn--quiet btn--s', type: 'button', dataset: { focus: `remove-${task.id}` }, ariaLabel: `${task.title} 삭제` }, '삭제');
   remove.addEventListener('click', () => {
     // 서버 withDescendants 와 같은 범위 — 세부 작업의 세부 작업까지 센다
     const ids = new Set([task.id]);
