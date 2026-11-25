@@ -384,9 +384,9 @@ const isParent = (task) => parentIds.has(task.id);
 | B | `POST /api/rooms/:code/join` | `{ name }` | `Member`·201 |
 | B | `PATCH /api/rooms/:code` | `{ size }` | `{ code, name, size, memberCount }` |
 | C | `GET /api/members` | — | `Member[]` |
-| C | `POST /api/members` | `{ name, availableHours }` | `Member` (201) — 같은 이름이면 400 |
+| C | `POST /api/members` | `{ name, availableHours }` | `Member` (201) — 같은 이름이면 400. 입장 코드가 켜져 있으면 400 `팀원은 입장 화면에서 이름을 넣고 들어옵니다.` |
 | C | `PATCH /api/members/:id` | `{ name?, availableHours? }` | `Member` — 다른 팀원과 같은 이름이면 400 |
-| C | `DELETE /api/members/:id` | — | `{ deleted, unassigned: [taskId, …] }` — 맡은 작업은 담당 미정, 추정은 보존하되 현재 계산에서 제외, 공개 조건 충족 시 공개 기록. 없으면 404 |
+| C | `DELETE /api/members/:id` | — | `{ deleted, unassigned: [taskId, …] }` — 맡은 작업은 담당 미정, 추정은 보존하되 현재 계산에서 제외, 공개 조건 충족 시 공개 기록. 방 정원 1 감소(최소 1) — 켜져 있으면 줄어든 정원으로, 꺼져 있으면 정원 없이 남은 전원 기준으로 공개 판단(#64). 없으면 404 |
 | C | `GET /api/tasks` | — | `Task[]` — `estimates`·`estimateHistory` 제외 |
 | C | `POST /api/tasks` | `{ title, dueDate?, parentId? }` | `Task` (201) |
 | C | `PATCH /api/tasks/:id` | `{ status?, assigneeId?, hours?, dueDate?, title? }` | `Task` — 추정 공개 전 숫자 `hours`는 400, `null`은 허용 |
@@ -410,7 +410,7 @@ const isParent = (task) => parentIds.has(task.id);
 - `hours: null`로 되돌리는 것은 허용합니다.
 - 상위 작업 삭제 시 모든 하위 작업을 함께 삭제합니다.
 - 존재하지 않는 작업 삭제는 404입니다.
-- 기존 `POST /api/members`는 전환 기간에 유지하고, 입장 화면 연결과 함께 제거합니다.
+- `POST /api/members`는 입장 코드가 꺼져 있으면 지금처럼 동작하고, 켜져 있으면 400입니다 — 팀원은 입장(`POST /api/rooms/:code/join`)으로만 생깁니다(#61). 꺼진 채 발표할 경우를 위해 지우지 않았습니다.
 
 ### 진행률 응답
 
