@@ -56,6 +56,7 @@ const make = (tag, props, ...children) => { const node = Object.assign(document.
 // 정원 — 실제 인원과 다르면 추정이 공개되지 않거나(크게) 마지막 사람이 못 들어온다(작게). 그래서 누구나 바꿀 수 있게 둔다 (#71)
 let roomSize = null;
 let memberCount = null;
+let sizeInput = null; // 열린 편집 칸 — 사용자가 손대지 않았으면 새 정원으로 맞춘다
 function drawSize() {
   const box = document.querySelector('#room-size');
   if (!box || roomSize === null) return;
@@ -66,6 +67,7 @@ function drawSize() {
 function sizeEditor(code) {
   const show = make('button', { type: 'button', className: 'btn btn--quiet btn--s', textContent: '정원 바꾸기' });
   const input = make('input', { type: 'number', min: '1', step: '1', inputMode: 'numeric' });
+  sizeInput = input;
   const save = make('button', { type: 'submit', className: 'btn btn--primary btn--s', textContent: '저장' });
   const cancel = make('button', { type: 'button', className: 'btn btn--quiet btn--s', textContent: '취소' });
   const error = make('p', { className: 'msg-error', role: 'alert' });
@@ -111,11 +113,17 @@ function showRoomBar(room) {
     make('div', { className: 'row', style: 'align-items: center' }, make('span', { id: 'room-size' }), show, form),
     error);
   document.querySelector('header .nav')?.after(bar);
-  api(`/api/rooms/${encodeURIComponent(room.code)}`).then((r) => {
-    roomSize = r.size;
-    memberCount ??= r.memberCount;
-    drawSize();
-  }, () => { show.hidden = true; }); // 방 정보를 못 받으면 정원 칸만 비운다 — 데이터 오류는 #app-error 가 알린다
+  loadSize(room.code).catch(() => { show.hidden = true; }); // 방 정보를 못 받으면 정원 칸만 비운다 — 데이터 오류는 #app-error 가 알린다
+}
+
+// 팀원을 지우면 서버 정원도 1 줄고 다른 팀원이 정원을 바꿀 수도 있어, 데이터를 받을 때마다 정원도 다시 받는다 (#72 리뷰)
+// 예전 정원이 편집 칸에 남아 그대로 저장되면 정원이 다시 늘어 공개가 막힌다
+async function loadSize(code) {
+  const r = await api(`/api/rooms/${encodeURIComponent(code)}`);
+  if (sizeInput && sizeInput.value === String(roomSize)) sizeInput.value = r.size;
+  roomSize = r.size;
+  memberCount ??= r.memberCount;
+  drawSize();
 }
 
 // 설정을 못 불러오면 꺼짐으로 넘기지 않고 알린 뒤 새로고침으로 다시 묻게 한다
@@ -138,6 +146,7 @@ export function start() {
     if (!on) return;
     memberCount = detail.members.length;
     drawSize();
+    loadSize(room.code).catch(() => {}); // 못 받으면 마지막 정원을 그대로 보여 준다
     const me = detail.members.find((m) => m.id === room.memberId);
     if (me) {
       // 이름을 고쳤으면 머리말과 저장값도 따라간다
