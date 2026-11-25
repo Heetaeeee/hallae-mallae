@@ -54,8 +54,10 @@ function daysLeft(dueDate) {
 }
 
 // 입장 화면에서 고른 팀원 — 이 방 팀원이면 그 사람으로 제출하고 "누구" 칸을 없앤다 (신원 확인은 하지 않음)
-// 입장 코드가 꺼져 있거나 저장된 팀원이 지워졌으면 null → 예전처럼 고르는 칸
+// 입장 코드가 꺼져 있거나(설정을 못 불러온 때 포함) 저장된 팀원이 지워졌으면 null → 예전처럼 고르는 칸
+let roomsEnabled = false;
 function enteredMember(members) {
+  if (!roomsEnabled) return null; // 꺼져 있어도 예전 입장 정보는 브라우저에 남아 있을 수 있다 (#63 리뷰)
   const id = savedRoom()?.memberId;
   return members.some((m) => m.id === id) ? id : null;
 }
@@ -263,7 +265,9 @@ if (slot) {
     }
     let summaries;
     try {
-      summaries = await api('/api/estimates');
+      let config;
+      [summaries, config] = await Promise.all([api('/api/estimates'), api('/api/config').catch(() => null)]);
+      roomsEnabled = config?.roomsEnabled === true;
     } catch (error) {
       fill(el('p', { className: 'msg-error', role: 'alert' }, `추정 현황을 불러오지 못했습니다. ${messageOf(error)}`));
       return;
