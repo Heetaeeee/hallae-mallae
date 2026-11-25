@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { progressPercent, daysLeft, doneShare, withDescendants } from '../src/lib/progress.js';
+import { progressPercent, daysLeft, doneShare, doneCounts, withDescendants } from '../src/lib/progress.js';
 
 const t = (o) => ({ id: 'x', status: 'TODO', assigneeId: null, hours: null, dueDate: null, ...o });
 
@@ -48,6 +48,29 @@ test("완료된 작업이 없으면 비중은 0", () => {
 test('크기가 정해지지 않은 완료 작업은 세지 않는다', () => {
   const tasks = [t({ assigneeId: 'm1', hours: null, status: 'DONE' })];
   assert.deepEqual(doneShare("m1", tasks), { percent: 0, hours: 0, totalHours: 0 });
+});
+
+test('완료 건수는 크기 미정으로 끝낸 작업도 세고, 그중 크기 미정 건수를 따로 준다', () => {
+  // 크기를 안 정하고 끝낸 작은 수정 2건 — 비중(시간)에는 0 이지만 건수로는 보여야 한다
+  const tasks = [
+    t({ assigneeId: 'm1', hours: 3, status: 'DONE' }),
+    t({ assigneeId: 'm1', hours: null, status: 'DONE' }),
+    t({ assigneeId: 'm1', hours: null, status: 'DONE' }),
+    t({ assigneeId: 'm1', hours: 5, status: 'DOING' }),
+    t({ assigneeId: 'm2', hours: 2, status: 'DONE' }),
+  ];
+  assert.deepEqual(doneCounts('m1', tasks), { count: 3, unsized: 2 });
+  assert.deepEqual(doneCounts('m2', tasks), { count: 1, unsized: 0 });
+  assert.deepEqual(doneCounts('m3', tasks), { count: 0, unsized: 0 });
+});
+test('완료 건수에서 상위 작업은 빼고, 담당 미정 완료도 따로 셀 수 있다', () => {
+  const tasks = [
+    t({ id: 'p', assigneeId: 'm1', status: 'DONE' }),
+    t({ id: 'c', parentId: 'p', assigneeId: 'm1', hours: 1, status: 'DONE' }),
+    t({ id: 'n', status: 'DONE' }),
+  ];
+  assert.deepEqual(doneCounts('m1', tasks), { count: 1, unsized: 0 });
+  assert.deepEqual(doneCounts(null, tasks), { count: 1, unsized: 1 });
 });
 
 import { weeklyRates } from '../src/lib/progress.js';

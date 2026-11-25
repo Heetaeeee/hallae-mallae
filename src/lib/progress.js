@@ -45,6 +45,13 @@ export function doneShare(memberId, tasks) {
   return { percent: totalHours === 0 ? 0 : Math.round((hours / totalHours) * 100), hours, totalHours };
 }
 
+// 완료한 작업 건수 — 크기를 정하지 않고 끝낸 작업은 doneShare 에서 빠지므로, 건수로라도 보이게 따로 센다
+// → { count: 완료 건수, unsized: 그중 크기 미정 }. 상위 작업은 세지 않는다
+export function doneCounts(memberId, tasks) {
+  const mine = withoutParents(tasks).filter((t) => t.status === 'DONE' && (t.assigneeId ?? null) === memberId);
+  return { count: mine.length, unsized: mine.filter((t) => t.hours === null).length };
+}
+
 // 'YYYY-MM-DD' 가 속한 주의 월요일
 function weekStartOf(s) {
   const d = utcDay(s);
