@@ -1,6 +1,6 @@
 // C 우희태 — #task-form · #tasks · #members · #progress (board.html, 홈의 #progress)
 // 페이지마다 있는 자리만 그린다. 서버에서 온 글자는 전부 textContent 로만 넣는다.
-import { api, refresh } from './api.js';
+import { api, refresh, roomsEnabled, savedRoom } from './api.js';
 
 // 폼은 noValidate — 브라우저 기본 경고 대신 서버의 안내 문장을 폼 아래에 띄운다
 const $ = (s) => document.querySelector(s);
@@ -78,6 +78,9 @@ if (memberSlot) {
     });
   });
   memberSlot.append(memberList, form);
+  // 입장 코드가 켜지면 팀원은 입장 화면으로만 들어온다. 켜졌는지 모르는 동안(확인 중 · 실패)은 숨겨 둔다
+  form.hidden = true;
+  roomsEnabled().then((on) => { form.hidden = on; }, () => {});
 }
 
 const taskFormSlot = $('#task-form');
@@ -125,10 +128,14 @@ function drawMembers(members, tasks) {
       if (!confirm(`'${m.name}' 팀원을 삭제할까요? 되돌릴 수 없습니다.${note}`)) return;
       act(remove, error, () => api(`/api/members/${m.id}`, { method: 'DELETE' }));
     });
+    // 입장하면 가능한 시간이 0 으로 시작하므로, 내 줄에 먼저 넣으라고 알린다 (켜져 있을 때만)
+    const hint = el('p', { className: 'sub', hidden: true }, '이번 주 가능한 시간을 먼저 넣어 주세요. 부담률 · 추천 계산에 쓰입니다.');
+    if (m.id === savedRoom()?.memberId && m.availableHours === 0) roomsEnabled().then((on) => { hint.hidden = !on; }, () => {});
     return el('div', { className: 'stack' },
       el('div', { className: 'between' },
         el('span', { className: 'who' }, avatar(members, m.id), m.name),
         el('div', { className: 'row' }, field('이번 주 시간', hours, 'field field--s'), remove)),
+      hint,
       error);
   }));
 }
@@ -151,6 +158,7 @@ function taskCard(task, members, tasks) {
   const d = daysLeft(task.dueDate);
   const owner = members.find((m) => m.id === task.assigneeId);
   const parent = tasks.find((t) => t.id === task.parentId);
+  const kids = tasks.filter((t) => t.parentId === task.id);
   const badges = el('div', { className: 'badges' },
     d === null || task.status === 'DONE' ? null
       : d < 0 ? el('span', { className: 'badge badge--over' }, `지남 ${-d}일`)
@@ -182,6 +190,8 @@ function taskCard(task, members, tasks) {
   return el('article', { className: 'card stack' },
     el('div', { className: 'between' }, el('h3', {}, task.title), status),
     parent ? el('p', { className: 'sub' }, `↳ ${parent.title}의 세부 작업`) : null,
+    // 보드는 상태별 칸이라 세부 작업이 흩어지므로, 큰 작업 카드에 몇 개 중 몇 개 끝났는지 적어 잇는다 (DESIGN "보드(C) 제안")
+    kids.length ? el('p', { className: 'sub' }, `세부 작업 ${kids.length}개 · 완료 ${kids.filter((t) => t.status === 'DONE').length}`) : null,
     badges,
     el('div', { className: 'slot stack' },
       el('div', { className: 'between' }, field('담당자', assignee), remove),
