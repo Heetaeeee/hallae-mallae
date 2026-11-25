@@ -317,7 +317,7 @@ const isParent = (task) => parentIds.has(task.id);
 #### 켜는 순서 (#60 리뷰 합의, 11/23)
 
 1. A — `estimates.js` 방 단위 전환 + 추정 공개에 정원(`room.size`) 전달
-2. C — 공용 머리말 방 정보 · 등록 폼 정리 — 머리말 `팀명 · 내 이름 · 나가기`, 켜지면 팀원 등록 폼 숨김 · `POST /api/members` 400, 내가 지워졌으면 `enter.html?code=` 로 다시 고르기
+2. C — 공용 머리말 방 정보 · 등록 폼 정리 — 머리말 `팀명 · 내 이름 · 나가기`, 켜지면 팀원 등록 폼 숨김 · `POST /api/members` 400, 내가 지워졌으면 `enter.html?code=` 로 다시 고르기, 머리말 정원 표시 · `정원 바꾸기`(`PATCH /api/rooms/:code`, #71)
 3. B — 통합 검증 뒤 `ROOMS_ENABLED=1`. 11/27 까지 목표, 그 전까지 `0`
 
 - 화면은 스위치를 `GET /api/config` 의 `roomsEnabled` 로 판별합니다. 다른 경로의 404 문장으로 짐작하지 않습니다.
