@@ -7,7 +7,7 @@ import { createMembersRouter } from '../src/routes/members.js';
 
 const e = (hours) => ({ hours, reason: '' });
 
-async function withApi(run) {
+async function withApi(run, { on = false } = {}) {
   let db = {
     size: 3,
     members: [{ id: 'm1', name: '김권섭', availableHours: 10 }, { id: 'm2', name: '박지호', availableHours: 10 }, { id: 'm3', name: '우희태', availableHours: 10 }],
@@ -19,7 +19,7 @@ async function withApi(run) {
   };
   const app = express();
   app.use(express.json());
-  app.use('/api/members', createMembersRouter(() => structuredClone(db), (code, next) => { db = next; }));
+  app.use('/api/members', createMembersRouter(() => structuredClone(db), (code, next) => { db = next; }, { enabled: () => on }));
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}/api/members`;
@@ -28,7 +28,11 @@ async function withApi(run) {
     return { status: res.status, body: await res.json() };
   };
   try {
-    await run({ del, saved: () => db });
+    const post = async (body) => {
+      const res = await fetch(base, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      return { status: res.status, body: await res.json() };
+    };
+    await run({ del, post, saved: () => db });
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -74,19 +78,34 @@ test('지운 사람이 낸 추정은 남기되 공개 값에서는 빠진다', a
   });
 });
 
-test('팀원을 지우면 정원도 1 줄고, 줄어든 정원이 남은 인원보다 크면 공개하지 않는다', async () => {
+test('팀원을 지우면 정원도 1 줄고, 켜져 있으면 줄어든 정원이 남은 인원보다 클 때 공개하지 않는다', async () => {
   await withApi(async ({ del, saved }) => {
     const r = await del('m3');
     assert.equal(r.status, 200);
     assert.equal(saved().size, 2);
-  });
+  }, { on: true });
   await withApi(async ({ del, saved }) => {
     // 정원 4 · 팀원 3 인 방 — m3 을 지워도 정원 3 에 2명뿐이라 아직 공개하면 안 된다
-    const before = saved();
-    before.size = 4;
+    saved().size = 4;
     const r = await del('m3');
     assert.equal(r.status, 200);
     assert.equal(saved().size, 3);
     assert.equal(saved().tasks.find((t) => t.id === 'wait').estimatesRevealed, false);
+  }, { on: true });
+});
+
+test('꺼져 있으면 정원이 남은 인원보다 커도 남은 전원이 낸 작업은 공개한다 (#64)', async () => {
+  await withApi(async ({ del, saved }) => {
+    saved().size = 4;
+    await del('m3');
+    assert.equal(saved().tasks.find((t) => t.id === 'wait').estimatesRevealed, true);
   });
+});
+
+test('입장 코드가 켜지면 팀원 등록(POST)은 400 이고 저장하지 않는다 — 입장으로만 들어온다', async () => {
+  await withApi(async ({ post, saved }) => {
+    const r = await post({ name: '새사람', availableHours: 5 });
+    assert.equal(r.status, 400);
+    assert.equal(saved().members.length, 3);
+  }, { on: true });
 });

@@ -158,7 +158,13 @@ function showRoom(room, { created = false, demoMembers = null } = {}) {
 // 입장 코드 스위치는 공개 설정(GET /api/config 의 roomsEnabled)으로 본다 — 리뷰 #60 합의
 function checkConfig() {
   api('/api/config').then(({ roomsEnabled }) => {
-    if (roomsEnabled) return startView();
+    if (roomsEnabled) {
+      startView();
+      // 머리말(api.js)이 "내가 지워졌다" 며 보낸 경우 그 방의 기존 팀원 고르기로 바로 연다
+      const code = new URLSearchParams(location.search).get('code');
+      if (code) api(`/api/rooms/${encodeURIComponent(code)}`).then((room) => showRoom(room)).catch(() => {});
+      return;
+    }
     root.replaceChildren(el('section', { className: 'panel stack' }, el('h2', {}, '입장 코드가 아직 꺼져 있습니다'),
       el('p', { className: 'sub' }, '지금은 팀 하나로 동작합니다. 바로 시작하면 됩니다.'),
       el('div', {}, el('a', { className: 'btn btn--primary', href: './' }, '바로 시작하기'))));
