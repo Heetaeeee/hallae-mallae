@@ -53,7 +53,7 @@ flowchart LR
 | 화면 | 팀원 등록·목록·삭제, 작업 보드, 진행률·D-day·완료 작업 비중·주차별 수행률 | `public/js/board.js` |
 | 계산 규칙 | 입력값 검사, 진행률, D-day, 완료 작업 비중, 주차별 수행률 | `src/lib/validate.js`·`progress.js` |
 | 서버 API | 팀원·작업 등록·수정·삭제, 진행률·주차별 수행률 조회 | `src/routes/members.js`·`tasks.js`·`progress.js`·`weekly.js` |
-| 테스트 | 50개 | `test/validate.test.js`·`progress.test.js`·`completed-at.test.js`·`tasks-api.test.js`·`members-api.test.js` |
+| 테스트 | 55개 | `test/validate.test.js`·`progress.test.js`·`completed-at.test.js`·`tasks-api.test.js`·`members-api.test.js`·`room-board-api.test.js` |
 | 시연 | 팀원·작업 등록 → 입력 오류 안내 → 완료 처리 → 팀원 삭제·담당 해제 → 진행 현황 변화 | |
 
 ### A 김권섭 — 작업 정의
@@ -317,7 +317,7 @@ const isParent = (task) => parentIds.has(task.id);
 #### 켜는 순서 (#60 리뷰 합의, 11/23)
 
 1. A — `estimates.js` 방 단위 전환 + 추정 공개에 정원(`room.size`) 전달
-2. C — 공용 머리말 방 정보 · 등록 폼 정리
+2. C — 공용 머리말 방 정보 · 등록 폼 정리 — 머리말 `팀명 · 내 이름 · 나가기`, 켜지면 팀원 등록 폼 숨김 · `POST /api/members` 400, 내가 지워졌으면 `enter.html?code=` 로 다시 고르기
 3. B — 통합 검증 뒤 `ROOMS_ENABLED=1`. 11/27 까지 목표, 그 전까지 `0`
 
 - 화면은 스위치를 `GET /api/config` 의 `roomsEnabled` 로 판별합니다. 다른 경로의 404 문장으로 짐작하지 않습니다.
@@ -327,6 +327,23 @@ const isParent = (task) => parentIds.has(task.id);
 - 방 코드 오류는 장기적으로 문장 대신 오류 코드로 판별합니다(방향 합의, 시점은 미정).
 
 공용 미들웨어가 데이터를 자동으로 분리하지는 않습니다. 각 라우터의 저장소 호출을 방별 함수로 전환해야 합니다.
+
+#### 체험 방 처음 상태 — `seed/demo.json` (11/25 희태, A 의 틀 작업을 넘겨받음)
+
+체험 방 API(A)가 누를 때마다 새 방을 만들 때 쓰는 처음 상태입니다. 세 화면 시연에 필요한 것이 다 들어 있습니다.
+
+- 날짜는 상대값입니다 — `dueInDays`(음수면 마감 지남) · `createdDaysAgo` · `completedDaysAgo` · `history[].atDaysAgo`
+- `demoRoom(seed, now)`(`src/lib/demo.js`)가 실제 날짜로 바꾼 방 `{ name, size, demo: true, createdAt, members, tasks }` 를 돌려줍니다. 마감일은 한국 날짜, 원본은 바꾸지 않습니다
+- `_설명` · `_역할` 은 사람이 읽는 메모라 바꾼 결과에 남지 않습니다
+- 팀원 이름은 실제 사람이 아닌 예시입니다
+
+| 시연 | 들어 있는 것 |
+|---|---|
+| A 작업 정의 | 큰 작업 `기말 발표 준비` 와 세부 4개, 두 명만 낸 `리허설`(세 번째로 내면 공개), 의견 차이가 커서 ver 2 로 조율한 `슬라이드 제작`, 아무도 안 낸 작업 |
+| B 분배 | 크기 확정 · 담당 미정 `대본 작성` · `시연 영상 촬영`, 부담률 0% · 63% · 125%(과부하) |
+| C 등록 · 진행 | 할 일 · 진행 중 · 완료 다 있음, 마감 지난 작업, 지난주 · 이번 주 수행률 |
+
+`test/demo-seed.test.js` 가 위 조건을 실제 계산 함수(`estimateSummary` · `currentHours` · `weeklyRates` 등)로 확인합니다. 데이터를 바꾸면 이 테스트를 돌려 주세요.
 
 #### 각 담당자의 후속 작업
 
@@ -689,14 +706,15 @@ document.addEventListener('data', async (event) => {
 |---|---:|
 | A 기능 | 48 |
 | B 분배 기능 | 26 |
-| C 기능 | 50 |
+| C 기능 | 55 |
 | 방 규칙·변환 | 12 |
 | 저장소 | 11 |
 | 방 API | 18 |
 | 공용 방 코드 검사 | 7 |
 | B 방별 부담률·추천 API 통합 | 6 |
-| 전체 | 178 |
+| 체험 방 처음 상태 | 8 |
+| 전체 | 191 |
 
-방 서버 뼈대 테스트 48개, 기존 기능 테스트 124개(A 추정 API 방 단위 5개 포함), B 방별 부담률·추천 API 통합 테스트 6개를 합쳐 전체 178개입니다.
+방 서버 뼈대 테스트 48개, 기존 기능 테스트 129개(A 추정 API 방 단위 5개 포함), B 방별 부담률·추천 API 통합 테스트 6개, 체험 방 처음 상태 테스트 8개를 합쳐 전체 191개입니다.
 
 테스트를 먼저 작성하고 실패를 확인한 뒤 구현합니다. 기능 추가와 병합에 따라 테스트 수가 달라지면 관련 문서도 갱신합니다.

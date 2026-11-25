@@ -1,0 +1,98 @@
+{
+  "_설명": "체험 방 처음 상태. 날짜는 만든 날 기준 상대값 — dueInDays(마감까지 남은 날, 음수면 지남) · createdDaysAgo · completedDaysAgo · history[].atDaysAgo. src/lib/demo.js 의 demoRoom() 이 실제 날짜로 바꾼다. 이름은 실제 사람이 아닌 예시",
+  "name": "체험 방 · 발표 준비하는 팀",
+  "size": 3,
+  "members": [
+    { "id": "d1", "name": "김민지", "availableHours": 12 },
+    { "id": "d2", "name": "이준호", "availableHours": 8 },
+    { "id": "d3", "name": "박서연", "availableHours": 4 }
+  ],
+  "tasks": [
+    {
+      "_역할": "A 세분화 — AI 로 나눈 큰 작업",
+      "id": "p1", "title": "기말 발표 준비", "parentId": null, "status": "TODO", "assigneeId": null, "hours": null,
+      "dueInDays": 5, "createdDaysAgo": 10, "completedDaysAgo": null,
+      "estimates": {}, "estimatesRevealed": false, "history": []
+    },
+    {
+      "_역할": "C 완료 · 지난주 마감 (주차별 수행률)",
+      "id": "s1", "title": "자료 조사", "parentId": "p1", "status": "DONE", "assigneeId": "d1", "hours": 3,
+      "dueInDays": -7, "createdDaysAgo": 10, "completedDaysAgo": 8,
+      "estimates": { "d1": { "hours": 3, "reason": "논문 3편 요약" }, "d2": { "hours": 2, "reason": "" }, "d3": { "hours": 4, "reason": "자료가 영어라 시간이 더 걸림" } },
+      "estimatesRevealed": true,
+      "history": [{ "version": 1, "by": null, "atDaysAgo": 9, "values": { "d1": 3, "d2": 2, "d3": 4 }, "reasons": { "d1": "논문 3편 요약", "d3": "자료가 영어라 시간이 더 걸림" }, "median": 3 }]
+    },
+    {
+      "_역할": "A 의견 차이 큼 → 조율해서 ver 2 · C 진행 중",
+      "id": "s2", "title": "슬라이드 제작", "parentId": "p1", "status": "DOING", "assigneeId": "d2", "hours": 5,
+      "dueInDays": 3, "createdDaysAgo": 10, "completedDaysAgo": null,
+      "estimates": { "d1": { "hours": 2, "reason": "템플릿 쓰면 금방" }, "d2": { "hours": 5, "reason": "슬라이드 15장 기준" }, "d3": { "hours": 6, "reason": "도식 직접 그림" } },
+      "estimatesRevealed": true,
+      "history": [
+        { "version": 1, "by": null, "atDaysAgo": 6, "values": { "d1": 2, "d2": 5, "d3": 9 }, "reasons": { "d1": "템플릿 쓰면 금방", "d2": "슬라이드 15장 기준", "d3": "도식 전부 새로 그림" }, "median": 5 },
+        { "version": 2, "by": "d3", "atDaysAgo": 5, "values": { "d1": 2, "d2": 5, "d3": 6 }, "reasons": { "d1": "템플릿 쓰면 금방", "d2": "슬라이드 15장 기준", "d3": "도식 직접 그림" }, "median": 5 }
+      ]
+    },
+    {
+      "_역할": "B 크기 확정 · 담당 미정 → 추천",
+      "id": "s3", "title": "대본 작성", "parentId": "p1", "status": "TODO", "assigneeId": null, "hours": 3,
+      "dueInDays": 4, "createdDaysAgo": 10, "completedDaysAgo": null,
+      "estimates": { "d1": { "hours": 3, "reason": "" }, "d2": { "hours": 3, "reason": "발표 10분 분량" }, "d3": { "hours": 2, "reason": "" } },
+      "estimatesRevealed": true,
+      "history": [{ "version": 1, "by": null, "atDaysAgo": 4, "values": { "d1": 3, "d2": 3, "d3": 2 }, "reasons": { "d2": "발표 10분 분량" }, "median": 3 }]
+    },
+    {
+      "_역할": "A 블라인드 추정 — 두 명만 냄. 세 번째로 내면 공개 (시연)",
+      "id": "s4", "title": "리허설", "parentId": "p1", "status": "TODO", "assigneeId": null, "hours": null,
+      "dueInDays": 5, "createdDaysAgo": 10, "completedDaysAgo": null,
+      "estimates": { "d1": { "hours": 2, "reason": "두 번 돌려보기" }, "d2": { "hours": 1, "reason": "" } },
+      "estimatesRevealed": false, "history": []
+    },
+    {
+      "_역할": "C 완료 · 지난주 마감",
+      "id": "t5", "title": "중간 보고서 제출", "parentId": null, "status": "DONE", "assigneeId": "d3", "hours": 2,
+      "dueInDays": -7, "createdDaysAgo": 12, "completedDaysAgo": 7,
+      "estimates": { "d1": { "hours": 2, "reason": "" }, "d2": { "hours": 2, "reason": "" }, "d3": { "hours": 2, "reason": "" } },
+      "estimatesRevealed": true,
+      "history": [{ "version": 1, "by": null, "atDaysAgo": 11, "values": { "d1": 2, "d2": 2, "d3": 2 }, "reasons": {}, "median": 2 }]
+    },
+    {
+      "_역할": "C 마감 지남 · B 박서연 과부하 (가능 4시간에 맡은 5시간)",
+      "id": "t6", "title": "회의록 정리", "parentId": null, "status": "TODO", "assigneeId": "d3", "hours": 3,
+      "dueInDays": -2, "createdDaysAgo": 9, "completedDaysAgo": null,
+      "estimates": { "d1": { "hours": 3, "reason": "" }, "d2": { "hours": 2, "reason": "" }, "d3": { "hours": 3, "reason": "녹음 듣고 정리" } },
+      "estimatesRevealed": true,
+      "history": [{ "version": 1, "by": null, "atDaysAgo": 8, "values": { "d1": 3, "d2": 2, "d3": 3 }, "reasons": { "d3": "녹음 듣고 정리" }, "median": 3 }]
+    },
+    {
+      "_역할": "C 진행 중 · 이번 주(오늘) 마감",
+      "id": "t7", "title": "참고문헌 정리", "parentId": null, "status": "DOING", "assigneeId": "d3", "hours": 2,
+      "dueInDays": 0, "createdDaysAgo": 6, "completedDaysAgo": null,
+      "estimates": { "d1": { "hours": 1, "reason": "" }, "d2": { "hours": 2, "reason": "" }, "d3": { "hours": 2, "reason": "" } },
+      "estimatesRevealed": true,
+      "history": [{ "version": 1, "by": null, "atDaysAgo": 5, "values": { "d1": 1, "d2": 2, "d3": 2 }, "reasons": {}, "median": 2 }]
+    },
+    {
+      "_역할": "B 크기 확정 · 담당 미정 → 추천 (큰 작업)",
+      "id": "t8", "title": "시연 영상 촬영", "parentId": null, "status": "TODO", "assigneeId": null, "hours": 4,
+      "dueInDays": 6, "createdDaysAgo": 5, "completedDaysAgo": null,
+      "estimates": { "d1": { "hours": 4, "reason": "편집 포함" }, "d2": { "hours": 3, "reason": "" }, "d3": { "hours": 4, "reason": "" } },
+      "estimatesRevealed": true,
+      "history": [{ "version": 1, "by": null, "atDaysAgo": 3, "values": { "d1": 4, "d2": 3, "d3": 4 }, "reasons": { "d1": "편집 포함" }, "median": 4 }]
+    },
+    {
+      "_역할": "C 완료 · 최근",
+      "id": "t9", "title": "역할 분담표 만들기", "parentId": null, "status": "DONE", "assigneeId": "d1", "hours": 1,
+      "dueInDays": -1, "createdDaysAgo": 6, "completedDaysAgo": 2,
+      "estimates": { "d1": { "hours": 1, "reason": "" }, "d2": { "hours": 1, "reason": "" }, "d3": { "hours": 1, "reason": "" } },
+      "estimatesRevealed": true,
+      "history": [{ "version": 1, "by": null, "atDaysAgo": 5, "values": { "d1": 1, "d2": 1, "d3": 1 }, "reasons": {}, "median": 1 }]
+    },
+    {
+      "_역할": "A 아직 아무도 추정 안 함 · 마감 없음",
+      "id": "t10", "title": "청중 설문 만들기", "parentId": null, "status": "TODO", "assigneeId": null, "hours": null,
+      "dueInDays": null, "createdDaysAgo": 1, "completedDaysAgo": null,
+      "estimates": {}, "estimatesRevealed": false, "history": []
+    }
+  ]
+}
