@@ -53,7 +53,7 @@ flowchart LR
 | 화면 | 팀원 등록·목록·삭제, 작업 보드, 진행률·D-day·완료 작업 비중·주차별 수행률 | `public/js/board.js` |
 | 계산 규칙 | 입력값 검사, 진행률, D-day, 완료 작업 비중, 주차별 수행률 | `src/lib/validate.js`·`progress.js` |
 | 서버 API | 팀원·작업 등록·수정·삭제, 진행률·주차별 수행률 조회 | `src/routes/members.js`·`tasks.js`·`progress.js`·`weekly.js` |
-| 테스트 | 55개 | `test/validate.test.js`·`progress.test.js`·`completed-at.test.js`·`tasks-api.test.js`·`members-api.test.js`·`room-board-api.test.js` |
+| 테스트 | 57개 | `test/validate.test.js`·`progress.test.js`·`completed-at.test.js`·`tasks-api.test.js`·`members-api.test.js`·`room-board-api.test.js` |
 | 시연 | 팀원·작업 등록 → 입력 오류 안내 → 완료 처리 → 팀원 삭제·담당 해제 → 진행 현황 변화 | |
 
 ### A 김권섭 — 작업 정의
@@ -317,7 +317,7 @@ const isParent = (task) => parentIds.has(task.id);
 #### 켜는 순서 (#60 리뷰 합의, 11/23)
 
 1. A — `estimates.js` 방 단위 전환 + 추정 공개에 정원(`room.size`) 전달
-2. C — 공용 머리말 방 정보 · 등록 폼 정리 — 머리말 `팀명 · 내 이름 · 나가기`, 켜지면 팀원 등록 폼 숨김 · `POST /api/members` 400, 내가 지워졌으면 `enter.html?code=` 로 다시 고르기
+2. C — 공용 머리말 방 정보 · 등록 폼 정리 — 머리말 `팀명 · 내 이름 · 나가기`, 켜지면 팀원 등록 폼 숨김 · `POST /api/members` 400, 내가 지워졌으면 `enter.html?code=` 로 다시 고르기, 머리말 정원 표시 · `정원 바꾸기`(`PATCH /api/rooms/:code`, #71)
 3. B — 통합 검증 뒤 `ROOMS_ENABLED=1`. 11/27 까지 목표, 그 전까지 `0`
 
 - 화면은 스위치를 `GET /api/config` 의 `roomsEnabled` 로 판별합니다. 다른 경로의 404 문장으로 짐작하지 않습니다.
@@ -384,9 +384,9 @@ const isParent = (task) => parentIds.has(task.id);
 | B | `POST /api/rooms/:code/join` | `{ name }` | `Member`·201 |
 | B | `PATCH /api/rooms/:code` | `{ size }` | `{ code, name, size, memberCount }` |
 | C | `GET /api/members` | — | `Member[]` |
-| C | `POST /api/members` | `{ name, availableHours }` | `Member` (201) — 같은 이름이면 400 |
+| C | `POST /api/members` | `{ name, availableHours }` | `Member` (201) — 같은 이름이면 400. 입장 코드가 켜져 있으면 400 `팀원은 입장 화면에서 이름을 넣고 들어옵니다.` |
 | C | `PATCH /api/members/:id` | `{ name?, availableHours? }` | `Member` — 다른 팀원과 같은 이름이면 400 |
-| C | `DELETE /api/members/:id` | — | `{ deleted, unassigned: [taskId, …] }` — 맡은 작업은 담당 미정, 추정은 보존하되 현재 계산에서 제외, 공개 조건 충족 시 공개 기록. 없으면 404 |
+| C | `DELETE /api/members/:id` | — | `{ deleted, unassigned: [taskId, …] }` — 맡은 작업은 담당 미정, 추정은 보존하되 현재 계산에서 제외, 공개 조건 충족 시 공개 기록. 방 정원 1 감소(최소 1) — 켜져 있으면 줄어든 정원으로, 꺼져 있으면 정원 없이 남은 전원 기준으로 공개 판단(#64). 없으면 404 |
 | C | `GET /api/tasks` | — | `Task[]` — `estimates`·`estimateHistory` 제외 |
 | C | `POST /api/tasks` | `{ title, dueDate?, parentId? }` | `Task` (201) |
 | C | `PATCH /api/tasks/:id` | `{ status?, assigneeId?, hours?, dueDate?, title? }` | `Task` — 추정 공개 전 숫자 `hours`는 400, `null`은 허용 |
@@ -410,7 +410,7 @@ const isParent = (task) => parentIds.has(task.id);
 - `hours: null`로 되돌리는 것은 허용합니다.
 - 상위 작업 삭제 시 모든 하위 작업을 함께 삭제합니다.
 - 존재하지 않는 작업 삭제는 404입니다.
-- 기존 `POST /api/members`는 전환 기간에 유지하고, 입장 화면 연결과 함께 제거합니다.
+- `POST /api/members`는 입장 코드가 꺼져 있으면 지금처럼 동작하고, 켜져 있으면 400입니다 — 팀원은 입장(`POST /api/rooms/:code/join`)으로만 생깁니다(#61). 꺼진 채 발표할 경우를 위해 지우지 않았습니다.
 
 ### 진행률 응답
 
@@ -423,13 +423,17 @@ const isParent = (task) => parentIds.has(task.id);
       memberId: 'm1',
       name: '김권섭',
       doneShare: 50,
-      doneHours: 6
+      doneHours: 6,
+      doneCount: 4,   // 완료 건수 (크기 미정으로 끝낸 작업 포함, 상위 작업 제외)
+      doneUnsized: 2  // 그중 크기 미정 — 비중(시간)에는 빠지는 작업
     }
   ],
-  // 담당자 없는 완료 작업의 몫. 0시간이면 화면에 표시하지 않음
+  // 담당자 없는 완료 작업의 몫. 완료 0건이면 화면에 표시하지 않음
   unassigned: {
     doneShare: 20,
-    doneHours: 2
+    doneHours: 2,
+    doneCount: 1,
+    doneUnsized: 0
   }
 }
 ```
@@ -706,15 +710,15 @@ document.addEventListener('data', async (event) => {
 |---|---:|
 | A 기능 | 48 |
 | B 분배 기능 | 26 |
-| C 기능 | 55 |
+| C 기능 | 57 |
 | 방 규칙·변환 | 12 |
 | 저장소 | 11 |
 | 방 API | 18 |
 | 공용 방 코드 검사 | 7 |
 | B 방별 부담률·추천 API 통합 | 6 |
 | 체험 방 처음 상태 | 8 |
-| 전체 | 191 |
+| 전체 | 193 |
 
-방 서버 뼈대 테스트 48개, 기존 기능 테스트 129개(A 추정 API 방 단위 5개 포함), B 방별 부담률·추천 API 통합 테스트 6개, 체험 방 처음 상태 테스트 8개를 합쳐 전체 191개입니다.
+방 서버 뼈대 테스트 48개, 기존 기능 테스트 131개(A 추정 API 방 단위 5개 포함), B 방별 부담률·추천 API 통합 테스트 6개, 체험 방 처음 상태 테스트 8개를 합쳐 전체 193개입니다.
 
 테스트를 먼저 작성하고 실패를 확인한 뒤 구현합니다. 기능 추가와 병합에 따라 테스트 수가 달라지면 관련 문서도 갱신합니다.

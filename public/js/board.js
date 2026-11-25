@@ -7,8 +7,9 @@ const $ = (s) => document.querySelector(s);
 const STATUS = { TODO: '할 일', DOING: '진행 중', DONE: '완료' };
 
 // el('p', { className: 'sub' }, '글자', 다른요소) — 문자열 자식은 글자로만 들어간다
-function el(tag, props = {}, ...children) {
+function el(tag, { dataset, ...props } = {}, ...children) {
   const node = Object.assign(document.createElement(tag), props);
+  Object.assign(node.dataset, dataset); // dataset 은 읽기 전용이라 따로 넣는다
   node.append(...children.filter((c) => c != null));
   return node;
 }
@@ -20,18 +21,20 @@ function field(label, input, className = 'field') {
 // 버튼을 잠근 채 요청 → 성공하면 refresh, 실패하면 서버 문장을 errorBox 에 띄운다
 // undo: 실패했을 때 바꾸던 값을 원래대로 돌리는 함수 (선택칸 · 입력칸)
 async function act(button, errorBox, fn, undo) {
-  button.disabled = true;
+  // 버튼만 잠근다 — 두 번 눌려 두 번 저장되지 않게. 선택칸 · 입력칸을 잠그면 포커스가 body 로 빠져 Tab 이동이 사라진다
+  const lock = button.tagName === 'BUTTON';
+  if (lock) button.disabled = true;
   errorBox.textContent = '';
   let saved = false;
   try {
     await fn();
     saved = true;
-    await refresh();
+    await refresh(); // 키보드 위치 · 입력 중인 값은 다시 그릴 때 'data' 에서 지킨다
   } catch (error) {
     if (!saved) undo?.();
     errorBox.textContent = error.message;
   } finally {
-    button.disabled = false;
+    if (lock) button.disabled = false;
   }
 }
 
@@ -115,12 +118,12 @@ function drawMembers(members, tasks) {
     return;
   }
   memberList.replaceChildren(...members.map((m) => {
-    const hours = el('input', { type: 'number', min: 0, step: 0.5, value: m.availableHours, ariaLabel: `${m.name} 이번 주 가능한 시간(시간)` });
+    const hours = el('input', { type: 'number', min: 0, step: 0.5, value: m.availableHours, dataset: { focus: `hours-${m.id}` }, ariaLabel: `${m.name} 이번 주 가능한 시간(시간)` });
     const error = el('p', { className: 'msg-error', role: 'alert' });
     hours.addEventListener('change', () =>
       act(hours, error, () => api(`/api/members/${m.id}`, { method: 'PATCH', body: { availableHours: hours.valueAsNumber } }),
         () => { hours.value = m.availableHours; }));
-    const remove = el('button', { className: 'btn btn--quiet btn--s', type: 'button', ariaLabel: `${m.name} 삭제` }, '삭제');
+    const remove = el('button', { className: 'btn btn--quiet btn--s', type: 'button', dataset: { focus: `remove-${m.id}` }, ariaLabel: `${m.name} 삭제` }, '삭제');
     remove.addEventListener('click', () => {
       const mine = tasks.filter((t) => t.assigneeId === m.id).length;
       const note = (mine > 0 ? `\n맡은 작업 ${mine}개는 담당 미정이 됩니다.` : '')
@@ -146,11 +149,11 @@ function taskCard(task, members, tasks) {
   const patch = (control, body, was) =>
     act(control, error, () => api(`/api/tasks/${task.id}`, { method: 'PATCH', body }), () => { control.value = was; });
 
-  const status = el('select', { className: 'status', ariaLabel: `${task.title} 상태` },
+  const status = el('select', { className: 'status', dataset: { focus: `status-${task.id}` }, ariaLabel: `${task.title} 상태` },
     ...Object.entries(STATUS).map(([value, label]) => el('option', { value, selected: task.status === value }, label)));
   status.addEventListener('change', () => patch(status, { status: status.value }, task.status));
 
-  const assignee = el('select', {},
+  const assignee = el('select', { dataset: { focus: `assignee-${task.id}` } },
     el('option', { value: '' }, '미정'),
     ...members.map((m) => el('option', { value: m.id, selected: task.assigneeId === m.id }, m.name)));
   assignee.addEventListener('change', () => patch(assignee, { assigneeId: assignee.value || null }, task.assigneeId ?? ''));
@@ -169,7 +172,7 @@ function taskCard(task, members, tasks) {
     owner ? el('span', { className: 'badge badge--team' }, `담당 ${owner.name}`)
       : el('span', { className: 'badge badge--todo' }, '담당 미정'));
 
-  const remove = el('button', { className: 'btn btn--quiet btn--s', type: 'button', ariaLabel: `${task.title} 삭제` }, '삭제');
+  const remove = el('button', { className: 'btn btn--quiet btn--s', type: 'button', dataset: { focus: `remove-${task.id}` }, ariaLabel: `${task.title} 삭제` }, '삭제');
   remove.addEventListener('click', () => {
     // 서버 withDescendants 와 같은 범위 — 세부 작업의 세부 작업까지 센다
     const ids = new Set([task.id]);
@@ -235,10 +238,13 @@ async function drawWeekly(tasks) {
   }
 }
 
+// 시간은 소수 첫째 자리까지 — 0.1 + 0.2 같은 합이 0.30000000000000004 로 찍히지 않게
+const round1 = (n) => Math.round(n * 10) / 10;
+
 // 담당을 정하면 바로 바뀌도록 서버를 거치지 않고 작업 목록에서 센다. 크기 미정 작업은 0시간
 function assignedHours(members, counted) {
   if (members.length === 0) return [el('p', { className: 'sub' }, '아직 팀원이 없습니다.')];
-  const sum = (list) => Math.round(list.reduce((s, t) => s + (t.hours ?? 0), 0) * 10) / 10;
+  const sum = (list) => round1(list.reduce((s, t) => s + (t.hours ?? 0), 0));
   return members.map((m) => {
     const mine = counted.filter((t) => t.assigneeId === m.id);
     return el('div', { className: 'between' },
@@ -255,10 +261,13 @@ async function drawProgress(slot, members, tasks, isLatest) {
   const [p, weekly] = await Promise.all([api('/api/progress'), drawWeekly(counted)]);
   if (!isLatest()) return;
   const done = counted.filter((t) => t.status === 'DONE').length;
-  const shares = p.doneHoursTotal === 0
-    ? [el('p', { className: 'sub' }, done === 0 ? '아직 완료된 작업이 없습니다.' : '완료한 작업의 확정 시간이 아직 없습니다.')]
-    : [...p.members, ...(p.unassigned.doneHours > 0 ? [{ name: '담당 미정', ...p.unassigned }] : [])]
-      .map((m) => meter(m.name, `${m.doneShare}% · ${m.doneHours}시간 / ${p.doneHoursTotal}시간`, m.doneShare));
+  // 시간 비중 옆에 완료 건수를 붙인다 — 크기를 안 정하고 끝낸 작업은 비중엔 빠지지만 건수로는 보이게
+  const shareText = (m) => (p.doneHoursTotal === 0 ? '확정 시간 없음' : `${m.doneShare}% · ${round1(m.doneHours)}시간 / ${round1(p.doneHoursTotal)}시간`)
+    + ` · 완료 ${m.doneCount}건` + (m.doneUnsized > 0 ? ` (크기 미정 ${m.doneUnsized}건)` : '');
+  const shares = done === 0
+    ? [el('p', { className: 'sub' }, '아직 완료된 작업이 없습니다.')]
+    : [...p.members, ...(p.unassigned.doneCount > 0 ? [{ name: '담당 미정', ...p.unassigned }] : [])]
+      .map((m) => meter(m.name, shareText(m), m.doneShare));
   // A 의 지난주 요약 자리. 다시 그려도 A 가 채운 내용이 지워지지 않게 같은 노드를 다시 붙인다
   const summary = slot.querySelector('#weekly-summary') ?? el('div', { id: 'weekly-summary' });
   fill(slot,
@@ -267,7 +276,7 @@ async function drawProgress(slot, members, tasks, isLatest) {
     ...assignedHours(members, counted),
     el('h3', { className: 'slot' }, '완료 작업 비중'),
     ...shares,
-    el('p', { className: 'sub' }, '완료한 작업의 확정 예상 시간 기준입니다. 실제 걸린 시간과 다를 수 있습니다.'),
+    el('p', { className: 'sub' }, '비중은 완료한 작업의 확정 예상 시간 기준입니다. 크기를 정하지 않고 끝낸 작업은 비중에서 빠지고 건수로만 셉니다. 실제 걸린 시간과 다를 수 있습니다.'),
     el('h3', { className: 'slot' }, '주차별 수행률'),
     summary,
     ...weekly,
@@ -277,10 +286,34 @@ async function drawProgress(slot, members, tasks, isLatest) {
 // 진행 현황은 'data' 뒤에 따로 API 를 기다리므로, 먼저 시작한 요청이 늦게 끝나 최신 화면을 덮지 않게 마지막 것만 그린다
 let progressSeq = 0;
 
+// 다시 그리면 카드 · 팀원 줄이 새로 만들어져 키보드 위치가 맨 위로 가고 입력 중인 값이 서버 값으로 바뀐다.
+// 그러면 "1" 까지 쳤을 때 갱신돼 "10" 뒤에 "2" 가 붙어 102 가 저장될 수 있다 — 지금 칸과 친 값을 기억했다가 돌려놓는다 (#69 리뷰)
+function keepFocus(draw) {
+  const active = document.activeElement;
+  const key = active?.dataset?.focus;
+  const typed = active?.tagName === 'INPUT' ? active.value : null;
+  draw();
+  const next = key && document.querySelector(`[data-focus="${key}"]`);
+  if (!next) return;
+  next.focus();
+  if (typed !== null && next.value !== typed) {
+    next.value = typed;
+    // 돌려놓은 값은 사용자가 친 것이라 칸을 떠날 때 저장돼야 한다 — 브라우저에 따라 change 가 안 올 수 있어, 안 왔을 때만 직접 보낸다.
+    // 다시 그려져 칸이 빠지며 생긴 blur 는 건너뛴다 (크롬은 이때 이미 change 로 저장한다)
+    let changed = false;
+    next.addEventListener('change', () => { changed = true; }, { once: true });
+    next.addEventListener('blur', () => setTimeout(() => {
+      if (!changed && next.isConnected && next.value === typed) next.dispatchEvent(new Event('change'));
+    }), { once: true });
+  }
+}
+
 document.addEventListener('data', async (e) => {
   const { members, tasks } = e.detail;
-  if (memberList) drawMembers(members, tasks);
-  if ($('#tasks')) drawTasks($('#tasks'), members, tasks);
+  keepFocus(() => {
+    if (memberList) drawMembers(members, tasks);
+    if ($('#tasks')) drawTasks($('#tasks'), members, tasks);
+  });
   if ($('#progress')) {
     const mine = ++progressSeq;
     const isLatest = () => mine === progressSeq;
