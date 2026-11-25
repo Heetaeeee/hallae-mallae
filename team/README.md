@@ -53,7 +53,7 @@ flowchart LR
 | 화면 | 팀원 등록·목록·삭제, 작업 보드, 진행률·D-day·완료 작업 비중·주차별 수행률 | `public/js/board.js` |
 | 계산 규칙 | 입력값 검사, 진행률, D-day, 완료 작업 비중, 주차별 수행률 | `src/lib/validate.js`·`progress.js` |
 | 서버 API | 팀원·작업 등록·수정·삭제, 진행률·주차별 수행률 조회 | `src/routes/members.js`·`tasks.js`·`progress.js`·`weekly.js` |
-| 테스트 | 52개 | `test/validate.test.js`·`progress.test.js`·`completed-at.test.js`·`tasks-api.test.js`·`members-api.test.js` |
+| 테스트 | 55개 | `test/validate.test.js`·`progress.test.js`·`completed-at.test.js`·`tasks-api.test.js`·`members-api.test.js`·`room-board-api.test.js` |
 | 시연 | 팀원·작업 등록 → 입력 오류 안내 → 완료 처리 → 팀원 삭제·담당 해제 → 진행 현황 변화 | |
 
 ### A 김권섭 — 작업 정의
@@ -688,14 +688,14 @@ document.addEventListener('data', async (event) => {
 |---|---:|
 | A 기능 | 48 |
 | B 분배 기능 | 26 |
-| C 기능 | 52 |
+| C 기능 | 55 |
 | 방 규칙·변환 | 12 |
 | 저장소 | 11 |
 | 방 API | 18 |
 | 공용 방 코드 검사 | 7 |
 | B 방별 부담률·추천 API 통합 | 6 |
-| 전체 | 180 |
+| 전체 | 183 |
 
-방 서버 뼈대 테스트 48개, 기존 기능 테스트 126개(A 추정 API 방 단위 5개 포함), B 방별 부담률·추천 API 통합 테스트 6개를 합쳐 전체 180개입니다.
+방 서버 뼈대 테스트 48개, 기존 기능 테스트 129개(A 추정 API 방 단위 5개 포함), B 방별 부담률·추천 API 통합 테스트 6개를 합쳐 전체 183개입니다.
 
 테스트를 먼저 작성하고 실패를 확인한 뒤 구현합니다. 기능 추가와 병합에 따라 테스트 수가 달라지면 관련 문서도 갱신합니다.
