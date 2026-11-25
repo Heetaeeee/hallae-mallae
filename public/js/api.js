@@ -50,17 +50,72 @@ export function roomsEnabled() {
   return config;
 }
 
-// 머리말 메뉴 아래에 "팀명 · 내 이름 · 나가기" (입장 코드가 켜져 있고 들어간 방이 있을 때만)
+// 머리말 메뉴 아래에 "팀명 · 내 이름 · 정원 · 나가기" (입장 코드가 켜져 있고 들어간 방이 있을 때만)
+const make = (tag, props, ...children) => { const node = Object.assign(document.createElement(tag), props); node.append(...children); return node; };
+
+// 정원 — 실제 인원과 다르면 추정이 공개되지 않거나(크게) 마지막 사람이 못 들어온다(작게). 그래서 누구나 바꿀 수 있게 둔다 (#71)
+let roomSize = null;
+let memberCount = null;
+function drawSize() {
+  const box = document.querySelector('#room-size');
+  if (!box || roomSize === null) return;
+  const count = memberCount ?? 0;
+  box.textContent = `${count} / ${roomSize}명 입장` + (count < roomSize ? ' — 정원이 다 차야 추정이 공개됩니다' : '');
+}
+
+function sizeEditor(code) {
+  const show = make('button', { type: 'button', className: 'btn btn--quiet btn--s', textContent: '정원 바꾸기' });
+  const input = make('input', { type: 'number', min: '1', step: '1', inputMode: 'numeric' });
+  const save = make('button', { type: 'submit', className: 'btn btn--primary btn--s', textContent: '저장' });
+  const cancel = make('button', { type: 'button', className: 'btn btn--quiet btn--s', textContent: '취소' });
+  const error = make('p', { className: 'msg-error', role: 'alert' });
+  const form = make('form', { className: 'row', noValidate: true, hidden: true },
+    make('label', { className: 'field field--s' }, '정원(명)', input), save, cancel);
+  const toggle = (open) => {
+    form.hidden = !open;
+    show.hidden = open;
+    error.textContent = '';
+    if (open) { input.value = roomSize ?? ''; input.min = String(Math.max(memberCount ?? 1, 1)); input.focus(); } else show.focus();
+  };
+  show.addEventListener('click', () => toggle(true));
+  cancel.addEventListener('click', () => toggle(false));
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    save.disabled = true;
+    error.textContent = '';
+    try {
+      // 서버가 인원보다 작은 정원을 거절하고, 인원과 같아지면 공개 조건을 다시 본다 — 그래서 저장 뒤 다시 불러온다
+      roomSize = (await api(`/api/rooms/${encodeURIComponent(code)}`, { method: 'PATCH', body: { size: input.valueAsNumber } })).size;
+      drawSize();
+      toggle(false);
+      await refresh();
+    } catch (err) {
+      error.textContent = err.message;
+    } finally {
+      save.disabled = false;
+    }
+  });
+  return [show, form, error];
+}
+
 function showRoomBar(room) {
-  const leave = Object.assign(document.createElement('button'), { type: 'button', className: 'btn btn--quiet btn--s', textContent: '나가기' });
+  const leave = make('button', { type: 'button', className: 'btn btn--quiet btn--s', textContent: '나가기' });
   leave.addEventListener('click', () => {
     try { localStorage.removeItem(ROOM_KEY); } catch { /* 지우지 못해도 입장 화면에서 다시 고르면 된다 */ }
     location.href = 'enter.html';
   });
-  const text = Object.assign(document.createElement('span'), { id: 'room-who', textContent: `${room.roomName} · ${room.memberName}` });
-  const bar = Object.assign(document.createElement('p'), { className: 'between sub' });
-  bar.append(text, leave);
+  const text = make('span', { id: 'room-who', textContent: `${room.roomName} · ${room.memberName}` });
+  const [show, form, error] = sizeEditor(room.code);
+  const bar = make('div', { className: 'stack sub' },
+    make('div', { className: 'between' }, text, leave),
+    make('div', { className: 'row', style: 'align-items: center' }, make('span', { id: 'room-size' }), show, form),
+    error);
   document.querySelector('header .nav')?.after(bar);
+  api(`/api/rooms/${encodeURIComponent(room.code)}`).then((r) => {
+    roomSize = r.size;
+    memberCount ??= r.memberCount;
+    drawSize();
+  }, () => { show.hidden = true; }); // 방 정보를 못 받으면 정원 칸만 비운다 — 데이터 오류는 #app-error 가 알린다
 }
 
 // 설정을 못 불러오면 꺼짐으로 넘기지 않고 알린 뒤 새로고침으로 다시 묻게 한다
@@ -81,6 +136,8 @@ export function start() {
     if (!room?.memberId) return;
     const on = await roomsEnabled().catch(() => false); // 실패는 위 안내가 맡는다. 확인 못 한 채로 입장 화면에 보내지 않는다
     if (!on) return;
+    memberCount = detail.members.length;
+    drawSize();
     const me = detail.members.find((m) => m.id === room.memberId);
     if (me) {
       // 이름을 고쳤으면 머리말과 저장값도 따라간다
