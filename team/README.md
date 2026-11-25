@@ -156,7 +156,7 @@ const isParent = (task) => parentIds.has(task.id);
 | C | 진행률, 완료 작업 비중, 주차별 수행률, 진행 현황의 건수·맡은 시간 |
 
 - 작업 보드에는 상위 작업도 표시합니다.
-- 세부 작업 카드에는 상위 작업과의 관계를 표시합니다.
+- 세부 작업 카드에는 상위 작업과의 관계를 표시하고, 상위 작업 카드에는 세부 작업 수와 완료 수를 표시합니다. 개수는 맨 아래 작업만 셉니다.
 - 세부 작업이 없는 작업은 일반 작업으로 계산합니다.
 - 재추천에서는 전체 목록으로 부모를 먼저 판별한 뒤 추천 대상 작업을 제외합니다. 반대로 하면 유일한 자식을 뺀 뒤 부모가 일반 작업으로 잘못 계산될 수 있습니다.
 
@@ -667,7 +667,7 @@ document.addEventListener('data', async (event) => {
 | 기능 | 파일 |
 |---|---|
 | C 등록·진행 | `src/lib/validate.js`·`progress.js`<br/>`src/routes/members.js`·`tasks.js`·`progress.js`·`weekly.js`<br/>`public/js/board.js` |
-| A 작업 정의 | `src/lib/breakdown.js`·`estimate.js`·`llm.js`<br/>`src/routes/breakdown.js`·`estimates.js`<br/>`public/js/sizing.js` |
+| A 작업 정의 | `src/lib/breakdown.js`·`estimate.js`·`llm.js`<br/>`src/routes/breakdown.js`·`estimates.js`<br/>`public/js/sizing.js`·`subtasks.js` |
 | B 분배 | `src/lib/load.js`·`explain.js`<br/>`src/routes/loads.js`·`recommend.js`<br/>`public/js/load.js` |
 | 서버 뼈대·배포 B | `package.json`·`server.js`·`src/app.js`·`src/lib/store.js`·`.env.example`·`Dockerfile`·`.dockerignore` |
 | 방 서버 뼈대 B | `src/lib/room.js`·`src/routes/rooms.js`·`src/middleware/room-context.js` |
@@ -686,7 +686,7 @@ document.addEventListener('data', async (event) => {
 
 | 구분 | 개수 |
 |---|---:|
-| A 기능 | 48 |
+| A 기능 | 52 |
 | B 분배 기능 | 26 |
 | C 기능 | 50 |
 | 방 규칙·변환 | 12 |
@@ -694,8 +694,8 @@ document.addEventListener('data', async (event) => {
 | 방 API | 18 |
 | 공용 방 코드 검사 | 7 |
 | B 방별 부담률·추천 API 통합 | 6 |
-| 전체 | 178 |
+| 전체 | 182 |
 
-방 서버 뼈대 테스트 48개, 기존 기능 테스트 124개(A 추정 API 방 단위 5개 포함), B 방별 부담률·추천 API 통합 테스트 6개를 합쳐 전체 178개입니다.
+방 서버 뼈대 테스트 48개, 기존 기능 테스트 128개(A 추정 API 방 단위 5개 · 보드 세부 작업 요약 4개 포함), B 방별 부담률·추천 API 통합 테스트 6개를 합쳐 전체 182개입니다.
 
 테스트를 먼저 작성하고 실패를 확인한 뒤 구현합니다. 기능 추가와 병합에 따라 테스트 수가 달라지면 관련 문서도 갱신합니다.
