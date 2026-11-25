@@ -78,8 +78,9 @@ if (memberSlot) {
     });
   });
   memberSlot.append(memberList, form);
-  // 입장 코드가 켜지면 팀원은 입장 화면으로만 들어온다
-  roomsEnabled().then((on) => { form.hidden = on; });
+  // 입장 코드가 켜지면 팀원은 입장 화면으로만 들어온다. 켜졌는지 모르는 동안(확인 중 · 실패)은 숨겨 둔다
+  form.hidden = true;
+  roomsEnabled().then((on) => { form.hidden = on; }, () => {});
 }
 
 const taskFormSlot = $('#task-form');
@@ -127,13 +128,14 @@ function drawMembers(members, tasks) {
       if (!confirm(`'${m.name}' 팀원을 삭제할까요? 되돌릴 수 없습니다.${note}`)) return;
       act(remove, error, () => api(`/api/members/${m.id}`, { method: 'DELETE' }));
     });
-    // 입장하면 가능한 시간이 0 으로 시작하므로, 내 줄에 먼저 넣으라고 알린다
-    const needsHours = m.id === savedRoom()?.memberId && m.availableHours === 0;
+    // 입장하면 가능한 시간이 0 으로 시작하므로, 내 줄에 먼저 넣으라고 알린다 (켜져 있을 때만)
+    const hint = el('p', { className: 'sub', hidden: true }, '이번 주 가능한 시간을 먼저 넣어 주세요. 부담률 · 추천 계산에 쓰입니다.');
+    if (m.id === savedRoom()?.memberId && m.availableHours === 0) roomsEnabled().then((on) => { hint.hidden = !on; }, () => {});
     return el('div', { className: 'stack' },
       el('div', { className: 'between' },
         el('span', { className: 'who' }, avatar(members, m.id), m.name),
         el('div', { className: 'row' }, field('이번 주 시간', hours, 'field field--s'), remove)),
-      needsHours ? el('p', { className: 'sub' }, '이번 주 가능한 시간을 먼저 넣어 주세요. 부담률 · 추천 계산에 쓰입니다.') : null,
+      hint,
       error);
   }));
 }
