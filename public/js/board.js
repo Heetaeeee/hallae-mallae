@@ -118,7 +118,7 @@ function drawMembers(members, tasks) {
     return;
   }
   memberList.replaceChildren(...members.map((m) => {
-    const hours = el('input', { type: 'number', min: 0, step: 0.5, value: m.availableHours, dataset: { focus: `hours-${m.id}` }, ariaLabel: `${m.name} 이번 주 가능한 시간(시간)` });
+    const hours = el('input', { type: 'number', min: 0, step: 0.5, defaultValue: m.availableHours, dataset: { focus: `hours-${m.id}` }, ariaLabel: `${m.name} 이번 주 가능한 시간(시간)` });
     const error = el('p', { className: 'msg-error', role: 'alert' });
     hours.addEventListener('change', () =>
       act(hours, error, () => api(`/api/members/${m.id}`, { method: 'PATCH', body: { availableHours: hours.valueAsNumber } }),
@@ -293,13 +293,19 @@ let progressSeq = 0;
 function keepFocus(draw) {
   const active = document.activeElement;
   const key = active?.dataset?.focus;
-  const typed = active?.tagName === 'INPUT' ? active.value : null;
+  // 사용자가 고친 값(서버 값과 다름)만 되돌린다 — 포커스만 둔 칸이 다른 사람이 바꾼 값을 덮지 않게 (#75)
+  const typed = active?.tagName === 'INPUT' && active.value !== active.defaultValue ? active.value : null;
   draw();
   const next = key && document.querySelector(`[data-focus="${key}"]`);
   if (!next) return;
   next.focus();
-  if (typed !== null && next.value !== typed) {
-    next.value = typed;
+  // 숫자 칸은 focus() 만 하면 글자 앞에 커서가 서서 이어 친 숫자가 앞에 붙는다(1 → 51) — 값을 다시 넣어 커서를 끝으로 보낸다
+  if (next.tagName === 'INPUT') {
+    const v = typed ?? next.value;
+    next.value = '';
+    next.value = v;
+  }
+  if (typed !== null && next.value === typed && typed !== next.defaultValue) {
     // 돌려놓은 값은 사용자가 친 것이라 칸을 떠날 때 저장돼야 한다 — 브라우저에 따라 change 가 안 올 수 있어, 안 왔을 때만 직접 보낸다.
     // 다시 그려져 칸이 빠지며 생긴 blur 는 건너뛴다 (크롬은 이때 이미 change 로 저장한다)
     let changed = false;
