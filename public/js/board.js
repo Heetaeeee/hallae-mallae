@@ -21,7 +21,6 @@ function field(label, input, className = 'field') {
 // 버튼을 잠근 채 요청 → 성공하면 refresh, 실패하면 서버 문장을 errorBox 에 띄운다
 // undo: 실패했을 때 바꾸던 값을 원래대로 돌리는 함수 (선택칸 · 입력칸)
 async function act(button, errorBox, fn, undo) {
-  let keep;
   // 버튼만 잠근다 — 두 번 눌려 두 번 저장되지 않게. 선택칸 · 입력칸을 잠그면 포커스가 body 로 빠져 Tab 이동이 사라진다
   const lock = button.tagName === 'BUTTON';
   if (lock) button.disabled = true;
@@ -30,15 +29,12 @@ async function act(button, errorBox, fn, undo) {
   try {
     await fn();
     saved = true;
-    // 다시 그리면 카드 · 팀원 줄이 새로 만들어져 키보드 위치가 맨 위로 간다 — 지금 있는 칸을 기억했다가 돌려놓는다
-    keep = document.activeElement?.dataset.focus;
-    await refresh();
+    await refresh(); // 키보드 위치 · 입력 중인 값은 다시 그릴 때 'data' 에서 지킨다
   } catch (error) {
     if (!saved) undo?.();
     errorBox.textContent = error.message;
   } finally {
     if (lock) button.disabled = false;
-    if (keep) document.querySelector(`[data-focus="${keep}"]`)?.focus();
   }
 }
 
@@ -284,10 +280,34 @@ async function drawProgress(slot, members, tasks, isLatest) {
 // 진행 현황은 'data' 뒤에 따로 API 를 기다리므로, 먼저 시작한 요청이 늦게 끝나 최신 화면을 덮지 않게 마지막 것만 그린다
 let progressSeq = 0;
 
+// 다시 그리면 카드 · 팀원 줄이 새로 만들어져 키보드 위치가 맨 위로 가고 입력 중인 값이 서버 값으로 바뀐다.
+// 그러면 "1" 까지 쳤을 때 갱신돼 "10" 뒤에 "2" 가 붙어 102 가 저장될 수 있다 — 지금 칸과 친 값을 기억했다가 돌려놓는다 (#69 리뷰)
+function keepFocus(draw) {
+  const active = document.activeElement;
+  const key = active?.dataset?.focus;
+  const typed = active?.tagName === 'INPUT' ? active.value : null;
+  draw();
+  const next = key && document.querySelector(`[data-focus="${key}"]`);
+  if (!next) return;
+  next.focus();
+  if (typed !== null && next.value !== typed) {
+    next.value = typed;
+    // 돌려놓은 값은 사용자가 친 것이라 칸을 떠날 때 저장돼야 한다 — 브라우저에 따라 change 가 안 올 수 있어, 안 왔을 때만 직접 보낸다.
+    // 다시 그려져 칸이 빠지며 생긴 blur 는 건너뛴다 (크롬은 이때 이미 change 로 저장한다)
+    let changed = false;
+    next.addEventListener('change', () => { changed = true; }, { once: true });
+    next.addEventListener('blur', () => setTimeout(() => {
+      if (!changed && next.isConnected && next.value === typed) next.dispatchEvent(new Event('change'));
+    }), { once: true });
+  }
+}
+
 document.addEventListener('data', async (e) => {
   const { members, tasks } = e.detail;
-  if (memberList) drawMembers(members, tasks);
-  if ($('#tasks')) drawTasks($('#tasks'), members, tasks);
+  keepFocus(() => {
+    if (memberList) drawMembers(members, tasks);
+    if ($('#tasks')) drawTasks($('#tasks'), members, tasks);
+  });
   if ($('#progress')) {
     const mine = ++progressSeq;
     const isLatest = () => mine === progressSeq;
