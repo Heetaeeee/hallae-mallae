@@ -74,6 +74,61 @@ ubuntu 사용자의 crontab에 다음 예약을 등록했습니다.
 
 이 백업은 같은 EC2 디스크에 있으므로 서버·디스크 자체의 손실에 대비한 외부 백업은 아닙니다.
 
+## 백업 복구 점검 — 별도 테스트 볼륨
+
+운영 볼륨을 건드리지 않고 백업을 읽을 수 있는지 확인하는 절차입니다.
+다음 명령은 AWS 서버의 ubuntu 사용자로 실행합니다.
+
+복원할 백업 파일이 있는지 먼저 확인합니다.
+
+```bash
+ls -lh /home/ubuntu/backups/before-restart.json
+```
+
+별도 테스트 볼륨에 백업을 복사합니다.
+
+```bash
+docker volume create 3oss-restore-check
+
+docker run --rm --network none --user 0 \
+  -v 3oss-restore-check:/data \
+  -v /home/ubuntu/backups:/backup:ro \
+  --entrypoint sh 3oss \
+  -c 'cp /backup/before-restart.json /data/db.json && chown node:node /data/db.json'
+```
+
+앱의 저장소 코드로 복원 데이터를 읽습니다.
+이 점검은 기존 운영 모드와 동일하게 방 기능을 끈 상태로 실행합니다.
+
+```bash
+docker run --rm --network none \
+  -e ROOMS_ENABLED=0 \
+  -v 3oss-restore-check:/data \
+  --entrypoint node 3oss --input-type=module \
+  -e 'import { load } from "./src/lib/store.js"; const db = load(); console.log("복원 데이터 읽기 성공"); console.log("팀원:", db.members.length, "명, 작업:", db.tasks.length, "개");'
+```
+
+이 절차는 별도 볼륨에서의 복구 점검이며, 운영 데이터 복구는 아닙니다.
+운영 볼륨 `3oss-data`는 삭제하지 않습니다.
+
+## 운영 데이터 복구 절차
+
+운영 복구는 현재 데이터를 백업 시점으로 되돌립니다.
+복구 중에는 서비스를 사용할 수 없으므로 팀원에게 작업 중단을 안내합니다.
+
+1. 복원할 백업 파일과 해당 저장 형식을 읽을 수 있는 코드 버전을 확인합니다.
+2. 현재 운영 데이터를 별도 파일로 백업하고 성공 여부를 확인합니다.
+3. 운영 컨테이너를 중지합니다.
+4. 백업 파일을 운영 볼륨의 `/data/db.json`으로 복사하고 소유자를 `node` 사용자로 맞춥니다.
+5. 호환되는 코드 이미지와 환경 설정으로 컨테이너를 시작합니다.
+6. 컨테이너 상태와 HTTPS 접속, 팀원·작업 데이터를 확인합니다.
+
+각 단계가 실패하면 다음 단계로 진행하지 않습니다.
+방별 형식으로 이전한 데이터를 이전 코드로 되돌리는 경우에는
+스위치만 끄지 말고 이전 전 백업을 복원해야 합니다.
+
+운영 볼륨을 대상으로 한 실제 복구는 아직 수행하지 않았습니다.
+
 ## 방 기능 활성화
 
 전체 통합 검증을 마친 뒤 `ROOMS_ENABLED=1`로 변경합니다.
@@ -134,7 +189,7 @@ ubuntu 사용자의 crontab에 다음 예약을 등록했습니다.
 - [x] 서버 시간대 `Asia/Seoul` 확인
 - [x] 컨테이너 교체 후 화면의 기존 팀원·작업 유지 확인
 - [ ] 새벽 예약으로 날짜별 백업 파일 생성 확인
-- [ ] 운영 컨테이너를 대상으로 한 복구 절차 정리
+- [x] 운영 컨테이너를 대상으로 한 복구 절차 정리
 - [x] 최신 배포 커밋 기록
 - [ ] 방 기능 전체 통합 검증 후 활성화
 - [ ] 발표 전 배포 데이터 점검: 불필요한 테스트 작업을 삭제하거나 시연용 데이터로 정리
