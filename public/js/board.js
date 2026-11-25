@@ -238,10 +238,13 @@ async function drawWeekly(tasks) {
   }
 }
 
+// 시간은 소수 첫째 자리까지 — 0.1 + 0.2 같은 합이 0.30000000000000004 로 찍히지 않게
+const round1 = (n) => Math.round(n * 10) / 10;
+
 // 담당을 정하면 바로 바뀌도록 서버를 거치지 않고 작업 목록에서 센다. 크기 미정 작업은 0시간
 function assignedHours(members, counted) {
   if (members.length === 0) return [el('p', { className: 'sub' }, '아직 팀원이 없습니다.')];
-  const sum = (list) => Math.round(list.reduce((s, t) => s + (t.hours ?? 0), 0) * 10) / 10;
+  const sum = (list) => round1(list.reduce((s, t) => s + (t.hours ?? 0), 0));
   return members.map((m) => {
     const mine = counted.filter((t) => t.assigneeId === m.id);
     return el('div', { className: 'between' },
@@ -258,10 +261,13 @@ async function drawProgress(slot, members, tasks, isLatest) {
   const [p, weekly] = await Promise.all([api('/api/progress'), drawWeekly(counted)]);
   if (!isLatest()) return;
   const done = counted.filter((t) => t.status === 'DONE').length;
-  const shares = p.doneHoursTotal === 0
-    ? [el('p', { className: 'sub' }, done === 0 ? '아직 완료된 작업이 없습니다.' : '완료한 작업의 확정 시간이 아직 없습니다.')]
-    : [...p.members, ...(p.unassigned.doneHours > 0 ? [{ name: '담당 미정', ...p.unassigned }] : [])]
-      .map((m) => meter(m.name, `${m.doneShare}% · ${m.doneHours}시간 / ${p.doneHoursTotal}시간`, m.doneShare));
+  // 시간 비중 옆에 완료 건수를 붙인다 — 크기를 안 정하고 끝낸 작업은 비중엔 빠지지만 건수로는 보이게
+  const shareText = (m) => (p.doneHoursTotal === 0 ? '확정 시간 없음' : `${m.doneShare}% · ${round1(m.doneHours)}시간 / ${round1(p.doneHoursTotal)}시간`)
+    + ` · 완료 ${m.doneCount}건` + (m.doneUnsized > 0 ? ` (크기 미정 ${m.doneUnsized}건)` : '');
+  const shares = done === 0
+    ? [el('p', { className: 'sub' }, '아직 완료된 작업이 없습니다.')]
+    : [...p.members, ...(p.unassigned.doneCount > 0 ? [{ name: '담당 미정', ...p.unassigned }] : [])]
+      .map((m) => meter(m.name, shareText(m), m.doneShare));
   // A 의 지난주 요약 자리. 다시 그려도 A 가 채운 내용이 지워지지 않게 같은 노드를 다시 붙인다
   const summary = slot.querySelector('#weekly-summary') ?? el('div', { id: 'weekly-summary' });
   fill(slot,
@@ -270,7 +276,7 @@ async function drawProgress(slot, members, tasks, isLatest) {
     ...assignedHours(members, counted),
     el('h3', { className: 'slot' }, '완료 작업 비중'),
     ...shares,
-    el('p', { className: 'sub' }, '완료한 작업의 확정 예상 시간 기준입니다. 실제 걸린 시간과 다를 수 있습니다.'),
+    el('p', { className: 'sub' }, '비중은 완료한 작업의 확정 예상 시간 기준입니다. 크기를 정하지 않고 끝낸 작업은 비중에서 빠지고 건수로만 셉니다. 실제 걸린 시간과 다를 수 있습니다.'),
     el('h3', { className: 'slot' }, '주차별 수행률'),
     summary,
     ...weekly,
