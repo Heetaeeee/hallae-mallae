@@ -79,6 +79,8 @@ function validateStore(db) {
 
 // 기존 팀원 등록 API를 사용하는 전환 기간의 기본 방만 보정한다.
 // 일반 방의 정원을 자동으로 늘리지는 않는다.
+const DEMO_TTL = 24 * 60 * 60 * 1000; // 체험 방은 하루 뒤 지운다
+
 function syncDefaultSize(db) {
   const room = db.rooms[db.defaultRoom];
 
@@ -321,12 +323,40 @@ export function createStore(filePath, {
     };
   }
 
+  // 체험 방(A) — 하루 지난 체험 방을 지우고 받은 방을 새 코드로 넣는다. 한 번에 쓴다
+  // 기본 방과 일반 방은 오래돼도 지우지 않는다
+  function createDemoRoom(room, now = new Date()) {
+    if (!enabled()) {
+      throw new Error('방 기능이 꺼져 있습니다.');
+    }
+
+    const { data: db } = readState();
+
+    for (const [code, old] of Object.entries(db.rooms)) {
+      if (old.demo && code !== db.defaultRoom && now - Date.parse(old.createdAt) > DEMO_TTL) {
+        delete db.rooms[code];
+      }
+    }
+
+    const code = generateRoomCode(Object.keys(db.rooms));
+
+    db.rooms[code] = room;
+
+    writeAtomic(validateStore(syncDefaultSize(db)));
+
+    return {
+      code,
+      ...room
+    };
+  }
+
   return {
     load,
     save,
     loadRoom,
     saveRoom,
     createRoom,
+    createDemoRoom,
     getDefaultRoomCode
   };
 }
@@ -338,6 +368,7 @@ export const save = defaultStore.save;
 export const loadRoom = defaultStore.loadRoom;
 export const saveRoom = defaultStore.saveRoom;
 export const createRoom = defaultStore.createRoom;
+export const createDemoRoom = defaultStore.createDemoRoom;
 export const getDefaultRoomCode = defaultStore.getDefaultRoomCode;
 
 export function newId() {
