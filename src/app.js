@@ -10,6 +10,7 @@ import estimatesRouter from './routes/estimates.js';
 import breakdownRouter from './routes/breakdown.js';
 import weeklyRouter from './routes/weekly.js';
 import roomsRouter from './routes/rooms.js';
+import demoRouter from './routes/demo.js';
 
 const app = express();
 
@@ -23,6 +24,8 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+// 체험 방은 /api/rooms 의 방 코드 경로보다 먼저 붙인다
+app.use('/api/rooms/demo', demoRouter);
 app.use('/api/rooms', roomsRouter);
 
 // 설정 조회와 방 입장 관련 경로 다음에 검사한다.
