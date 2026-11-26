@@ -248,6 +248,39 @@ main 병합 및 운영 배포가 완료됐는지 확인한 뒤 활성화해야 �
 이 보완과 검증이 완료되기 전에는 운영 환경의 `ROOMS_ENABLED=0`을 유지합니다.
 무작위 방 코드는 본인 확인이나 사용자별 권한을 제공하지 않습니다.
 
+### 활성화 후 기존 방 코드 확인
+
+환경 변수를 켜는 것만으로 데이터가 즉시 이전되지는 않습니다.
+`/api/config` 조회도 이전을 실행하지 않습니다.
+저장소 함수를 처음 호출할 때 이전됩니다.
+
+새 이미지 배포와 활성화 직전 백업을 완료하고,
+`ROOMS_ENABLED=1`로 운영 컨테이너를 교체한 뒤 다음을 실행합니다.
+
+아래 명령은 앱의 저장소 함수를 호출하므로 기존 형식이면
+백업·이전을 실행하고, 이미 이전됐다면 저장된 기본 방 코드를 반환합니다.
+
+```bash
+docker exec 3oss-app node --input-type=module -e '
+import { getDefaultRoomCode } from "./src/lib/store.js";
+
+if (process.env.ROOMS_ENABLED !== "1") {
+  throw new Error("방 기능 활성화 설정을 먼저 확인해 주세요.");
+}
+
+const code = getDefaultRoomCode();
+
+if (code === "LEGACY") {
+  throw new Error("이미 LEGACY로 이전된 데이터입니다. 별도 코드 변경 절차가 필요합니다.");
+}
+
+console.log("기존 팀의 방 코드:", code);
+'
+```
+
+출력된 코드는 기존 팀원에게 전달합니다.
+백업 파일과 이전 후 팀원·작업의 보존 여부도 확인합니다.
+
 ## 검증 기록 — 2026-11-25
 
 - HTTPS 외부 접속 성공
