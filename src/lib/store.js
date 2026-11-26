@@ -145,9 +145,13 @@ export function createStore(filePath, {
       };
     }
 
+    // LEGACY는 비활성 상태의 기존 형식에만 사용한다.
+    // 활성화 시에는 고정 코드를 제외한 무작위 코드로 이전한다.
+    const defaultRoomCode = generateRoomCode([LEGACY_ROOM_CODE]);
+
     const migrated = migrateLegacyData(
       parsed,
-      LEGACY_ROOM_CODE
+      defaultRoomCode
     );
 
     validateStore(migrated);
