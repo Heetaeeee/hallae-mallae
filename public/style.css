@@ -128,8 +128,8 @@ select.status { min-height: 40px; width: auto; font-size: 14px; border-radius: v
 .bar--100 { --max: 100; }
 .bar--100::after { display: none; }
 
-/* 작업 보드 — 결정할 것이 모이는 '할 일' 칸이 가장 넓다 */
-.board { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--s4); align-items: start; }
+/* 작업 보드 — 세 칸 같은 너비 */
+.board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); align-items: start; }
 .est { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: var(--s2) var(--s3); align-items: center; }
 .pick { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s3); align-items: center; }
 
@@ -214,6 +214,14 @@ details:not(.group)[open] > summary::before { content: '▾'; }
 #recommend > a:last-child { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4);
   border-radius: var(--r-s); background: var(--primary); color: var(--on-primary); font-weight: 600; text-decoration: none; }
 @media (hover: hover) and (pointer: fine) { #recommend > a:last-child:hover { background: var(--primary-strong); } }
+
+/* A — 보드: 큰 작업 카드의 진행 요약, 세부 작업 카드의 세로선 · 큰 작업 이름 배지 */
+.meter--s { font-size: 14px; color: var(--sub); }
+.meter--s .bar { height: 8px; }
+.card--sub { border-left: 3px solid var(--line); border-radius: 0 var(--r-m) var(--r-m) 0; }
+.badge--parent { position: relative; display: block; justify-self: start; max-width: 100%; line-height: 26px; overflow: hidden; text-overflow: ellipsis; }
+/* 눈에는 안 보이고 화면 낭독기만 읽는 글자 */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* A — enter: 방 코드는 크게, 한 글자씩 또렷하게 */
 .room-code { font-size: 28px; font-weight: 700; letter-spacing: 0.2em; font-variant-numeric: tabular-nums; }

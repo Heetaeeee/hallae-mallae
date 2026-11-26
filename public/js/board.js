@@ -52,8 +52,8 @@ function daysLeft(dueDate) {
   return Math.round((utc(dueDate) - utc(today)) / 86_400_000);
 }
 
-function meter(label, valueText, percent) {
-  return el('div', { className: 'meter' },
+function meter(label, valueText, percent, className = 'meter') {
+  return el('div', { className },
     el('div', { className: 'between' }, label, el('strong', {}, valueText)),
     el('div', { className: 'bar bar--100', role: 'img', ariaLabel: `${valueText}` },
       el('span', { className: 'bar-now', style: `--v:${percent}` })));
@@ -118,7 +118,7 @@ function drawMembers(members, tasks) {
     return;
   }
   memberList.replaceChildren(...members.map((m) => {
-    const hours = el('input', { type: 'number', min: 0, step: 0.5, value: m.availableHours, dataset: { focus: `hours-${m.id}` }, ariaLabel: `${m.name} 이번 주 가능한 시간(시간)` });
+    const hours = el('input', { type: 'number', min: 0, step: 0.5, defaultValue: m.availableHours, dataset: { focus: `hours-${m.id}` }, ariaLabel: `${m.name} 이번 주 가능한 시간(시간)` });
     const error = el('p', { className: 'msg-error', role: 'alert' });
     hours.addEventListener('change', () =>
       act(hours, error, () => api(`/api/members/${m.id}`, { method: 'PATCH', body: { availableHours: hours.valueAsNumber } }),
@@ -162,6 +162,8 @@ function taskCard(task, members, tasks) {
   const owner = members.find((m) => m.id === task.assigneeId);
   const parent = tasks.find((t) => t.id === task.parentId);
   const kids = tasks.filter((t) => t.parentId === task.id);
+  const kidsDone = kids.filter((t) => t.status === 'DONE').length;
+  const kidsPercent = (kidsDone / kids.length) * 100;
   const badges = el('div', { className: 'badges' },
     d === null || task.status === 'DONE' ? null
       : d < 0 ? el('span', { className: 'badge badge--over' }, `지남 ${-d}일`)
@@ -190,11 +192,11 @@ function taskCard(task, members, tasks) {
     act(remove, error, () => api(`/api/tasks/${task.id}`, { method: 'DELETE' }));
   });
 
-  return el('article', { className: 'card stack' },
+  // 보드는 상태별 칸이라 세부 작업이 흩어진다. 묶지 않고 큰 작업엔 진행 막대, 세부 작업엔 큰 작업 이름으로 잇는다 (DESIGN "보드 카드만 다른 점")
+  return el('article', { className: parent ? 'card card--sub stack' : 'card stack' },
+    parent ? el('p', { className: 'badge badge--parent', title: parent.title }, parent.title, el('span', { className: 'sr-only' }, '의 세부 작업')) : null,
     el('div', { className: 'between' }, el('h3', {}, task.title), status),
-    parent ? el('p', { className: 'sub' }, `↳ ${parent.title}의 세부 작업`) : null,
-    // 보드는 상태별 칸이라 세부 작업이 흩어지므로, 큰 작업 카드에 몇 개 중 몇 개 끝났는지 적어 잇는다 (DESIGN "보드(C) 제안")
-    kids.length ? el('p', { className: 'sub' }, `세부 작업 ${kids.length}개 · 완료 ${kids.filter((t) => t.status === 'DONE').length}`) : null,
+    kids.length ? meter(`세부 작업 ${kids.length}개 · 완료 ${kidsDone}개`, `${Math.round(kidsPercent)}%`, kidsPercent, 'meter meter--s') : null,
     badges,
     el('div', { className: 'slot stack' },
       el('div', { className: 'between' }, field('담당자', assignee), remove),
@@ -291,13 +293,19 @@ let progressSeq = 0;
 function keepFocus(draw) {
   const active = document.activeElement;
   const key = active?.dataset?.focus;
-  const typed = active?.tagName === 'INPUT' ? active.value : null;
+  // 사용자가 고친 값(서버 값과 다름)만 되돌린다 — 포커스만 둔 칸이 다른 사람이 바꾼 값을 덮지 않게 (#75)
+  const typed = active?.tagName === 'INPUT' && active.value !== active.defaultValue ? active.value : null;
   draw();
   const next = key && document.querySelector(`[data-focus="${key}"]`);
   if (!next) return;
   next.focus();
-  if (typed !== null && next.value !== typed) {
-    next.value = typed;
+  // 숫자 칸은 focus() 만 하면 글자 앞에 커서가 서서 이어 친 숫자가 앞에 붙는다(1 → 51) — 값을 다시 넣어 커서를 끝으로 보낸다
+  if (next.tagName === 'INPUT') {
+    const v = typed ?? next.value;
+    next.value = '';
+    next.value = v;
+  }
+  if (typed !== null && next.value === typed && typed !== next.defaultValue) {
     // 돌려놓은 값은 사용자가 친 것이라 칸을 떠날 때 저장돼야 한다 — 브라우저에 따라 change 가 안 올 수 있어, 안 왔을 때만 직접 보낸다.
     // 다시 그려져 칸이 빠지며 생긴 blur 는 건너뛴다 (크롬은 이때 이미 change 로 저장한다)
     let changed = false;
