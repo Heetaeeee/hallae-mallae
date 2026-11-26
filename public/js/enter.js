@@ -57,12 +57,8 @@ function startView() {
   }, { primary: false });
 
   const demoError = el('p', { className: 'msg-error', role: 'alert' });
-  // 체험 방 (11/23 결정): API(POST /api/rooms/demo, A 2주차)를 만드는 동안은 `준비 중` 으로 잠그고,
-  // 기능 동결(11/28)까지 API 가 없으면 패널째 숨긴다 — 발표 화면에 잠긴 버튼이 남지 않게. API 를 만들면 DEMO_READY 를 true 로
-  const DEMO_READY = false;
-  const FROZEN = new Date() >= new Date('2026-11-28T00:00:00+09:00');
-  const demoButton = el('button', { className: 'btn', type: 'button', disabled: !DEMO_READY },
-    DEMO_READY ? '체험 방으로 들어가기' : '체험 방으로 들어가기 (준비 중)');
+  // 체험 방 — POST /api/rooms/demo 가 누를 때마다 예시 팀이 든 새 방을 만든다
+  const demoButton = el('button', { className: 'btn', type: 'button' }, '체험 방으로 들어가기');
   demoButton.addEventListener('click', async () => {
     demoButton.disabled = true;
     demoError.textContent = '';
@@ -81,7 +77,7 @@ function startView() {
       el('p', { className: 'sub' }, '팀원에게 받은 방 코드 6자리를 넣어 주세요.'), joinForm),
     el('section', { className: 'panel stack' }, el('h2', {}, '새 방 만들기'),
       el('p', { className: 'sub' }, '팀 이름과 팀원 수를 정하면 방 코드가 나옵니다. 정원이 차고 등록된 전원이 제출하면 추정이 공개됩니다.'), createForm),
-    !DEMO_READY && FROZEN ? null : el('section', { className: 'panel stack' }, el('h2', {}, '먼저 둘러보기'),
+    el('section', { className: 'panel stack' }, el('h2', {}, '먼저 둘러보기'),
       el('p', { className: 'sub' }, '예시 팀이 들어 있는 체험 방을 새로 만들어 들어갑니다. 다른 사람과 섞이지 않습니다.'),
       el('div', {}, demoButton), demoError));
   code.focus();
