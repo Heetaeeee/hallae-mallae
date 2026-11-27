@@ -7,6 +7,18 @@
 
 **바로 써보기 → [https://hallaemallae.duckdns.org](https://hallaemallae.duckdns.org)** · 사용 방법은 아래 [사용 방법](#사용-방법) 절
 
+### 화면 미리보기
+
+> 아래는 예시 데이터로 띄운 실제 화면이고, 직접 띄우려면 [화면 보는 법](#화면-보는-법)을 따르세요. 그림을 누르면 크게 보입니다.
+
+[![인트로 — 사이트에 들어오면 처음 보이는 화면](docs/screens/intro.png)](docs/screens/intro.png)
+
+| 홈 | 등록 · 진행 |
+|---|---|
+| [![홈](docs/screens/home.png)](docs/screens/home.png) | [![등록 · 진행](docs/screens/board.png)](docs/screens/board.png) |
+| **작업 정의** | **분배** |
+| [![작업 정의](docs/screens/sizing.png)](docs/screens/sizing.png) | [![분배](docs/screens/load.png)](docs/screens/load.png) |
+
 ---
 
 ## 30초 요약
@@ -248,6 +260,24 @@ npm start
 npm test
 ```
 
+### 화면 보는 법
+
+`npm start` 로 서버를 켠 뒤 브라우저에서 아래 주소를 엽니다. 화면은 서버의 API 로 데이터를 받으므로, 파일을 더블클릭해서 열면 데이터가 나오지 않습니다.
+
+| 화면 | 주소 | 무엇을 보나 | 담당 |
+|---|---|---|---|
+| 인트로 | `http://localhost:3000/` | 첫 장면(로고가 갈라짐) → 서비스 소개와 세 단계 → 시작 버튼 | 김권섭 |
+| 홈 | `http://localhost:3000/home.html` | 기능별 화면으로 가는 카드 셋, 오른쪽 진행 현황 | 우희태 |
+| 등록 · 진행 | `http://localhost:3000/board.html` | 작업 등록, 할 일 · 진행 중 · 완료 보드, 팀원, 진행 현황 | 우희태 |
+| 작업 정의 | `http://localhost:3000/sizing.html` | AI로 큰 작업 나누기, 블라인드 추정(추정 중 · 크기 확정 두 칸) | 김권섭 |
+| 분배 | `http://localhost:3000/load.html` | 팀원별 부담률 막대, 담당자 추천 | 박지호 |
+
+- 인트로 첫 장면은 **탭마다 한 번**만 나옵니다. 다시 보려면 새 탭으로 여세요(같은 탭에서 새로고침하면 건너뜀).
+- 인트로의 `팀 방 만들기` · `입장 코드로 들어가기` 는 입장 화면(`/enter.html`)으로 갑니다. `체험 방 둘러보기` 도 입장 화면으로 가서 `체험 방으로 들어가기` 를 누릅니다. 입장 코드가 꺼져 있으면 입장 화면에 `바로 시작하기` 가 보이고 홈으로 넘어갑니다.
+- 휴대폰 모양은 브라우저 개발자 도구(F12)의 기기 모드에서 폭 375px 로 봅니다.
+- 데이터가 하나도 없으면 홈 · 분배는 빈 안내만 보입니다. 등록 · 진행 화면에서 팀원과 작업을 먼저 넣으세요.
+- 모양의 기준은 [디자인 가이드](team/DESIGN.md)입니다.
+
 Docker 로 실행할 때는 데이터 볼륨을 붙입니다 (운영 절차는 [배포 기록](team/DEPLOY.md)).
 
 ```bash
@@ -279,7 +309,9 @@ src/
     llm.js             LLM API 호출
     demo.js            체험 방 처음 상태의 날짜를 오늘 기준으로
 public/
-  index.html           홈 — 기능별 화면으로 가는 카드 · 진행 현황
+  index.html           첫 화면 — 인트로 (김권섭)
+  intro.css            인트로 전용 스타일
+  home.html            홈 — 기능별 화면으로 가는 카드 · 진행 현황
   enter.html           입장 — 방 코드 · 방 만들기 · 체험 방 (김권섭)
   board.html           등록 · 진행 (우희태)
   sizing.html          작업 정의 — AI 세분화 · 블라인드 추정 (김권섭)
@@ -290,6 +322,7 @@ seed/demo.json         체험 방 처음 상태
 Dockerfile             배포용 이미지
 test/                  단위 테스트
 team/                  역할 분담 · 개인별 지침서
+docs/screens/          README 화면 미리보기 그림
 ```
 
 ## 개발 관리
