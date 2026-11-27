@@ -7,6 +7,8 @@
 
 **바로 써보기 → [https://hallaemallae.duckdns.org](https://hallaemallae.duckdns.org)** · 사용 방법은 아래 [사용 방법](#사용-방법) 절
 
+> **인트로 시안 브랜치(`kwonseop/intro`)입니다.** 위 배포 주소는 아직 `main`(홈이 첫 화면)이라 인트로가 보이지 않습니다. 바뀐 화면은 아래 [이 브랜치 화면 띄우기](#이-브랜치-화면-띄우기)로 내 컴퓨터에서 봅니다. 병합할 때 이 안내 두 곳은 지웁니다.
+
 ### 화면 미리보기
 
 > 아래는 예시 데이터로 띄운 실제 화면이고, 직접 띄우려면 [화면 보는 법](#화면-보는-법)을 따르세요. 그림을 누르면 크게 보입니다.
@@ -259,6 +261,35 @@ npm start
 ```bash
 npm test
 ```
+
+### 이 브랜치 화면 띄우기
+
+Node 22.9 이상이 필요합니다. 이미 저장소를 받아 두었으면 `git clone` 과 `cd` 는 건너뜁니다.
+
+```bash
+git clone https://github.com/Heetaeeee/hallae-mallae.git
+cd hallae-mallae
+git fetch origin
+git switch kwonseop/intro
+npm install
+npm start
+```
+
+브라우저에서 `http://localhost:3000/` 을 **새 탭**으로 열면 인트로부터 보입니다.
+
+입장 화면 · 체험 방까지 보려면 입장 코드를 켜고 시작합니다. 시험용 데이터가 내 `data/db.json` 에 섞이지 않게 다른 폴더를 씁니다.
+
+```bash
+# macOS · Linux · Git Bash
+ROOMS_ENABLED=1 DATA_DIR=./data/trial npm start
+```
+
+```powershell
+# Windows PowerShell
+$env:ROOMS_ENABLED="1"; $env:DATA_DIR="./data/trial"; npm start
+```
+
+인트로의 `가입 없이 체험 방 둘러보기` → `체험 방으로 들어가기` → 예시 팀원 하나를 고르면 예시 데이터가 든 홈 · 등록 · 진행 · 작업 정의 · 분배를 모두 볼 수 있습니다. 다 본 뒤 `git switch main` 으로 돌아갑니다.
 
 ### 화면 보는 법
 
