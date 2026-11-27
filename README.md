@@ -84,7 +84,7 @@ xychart-beta
 | 주차별 수행률 | 주마다 "그 주에 마감인 작업 중 완료한 비율"을 `60% · 3건 / 5건` 처럼 막대로 표시 |
 | 삭제 | 작업 삭제(세부 작업 함께), 팀원 삭제(맡은 작업은 담당 미정, 낸 추정은 계산에서 빠짐) |
 | 팀 방 · 입장 코드 | 방을 만들면 6자리 코드가 나오고, 팀원은 코드와 이름만으로 들어옴. 방마다 데이터가 따로 저장됨. 정원이 차고 전원이 내야 추정 공개 |
-| 체험 방 | 예시 팀이 들어 있는 방을 새로 만들어 둘러봄. 다른 사람과 섞이지 않음 (체험 방 API 완성 뒤 — 11/28 까지 안 되면 버튼을 숨김) |
+| 체험 방 | 예시 팀이 들어 있는 방을 새로 만들어 둘러봄. 다른 사람과 섞이지 않음. 임시 방이라 만든 지 24시간이 지난 뒤 누군가 체험 방을 새로 만들 때 지워짐(정해진 시각에 바로 지우지는 않음). 체험 중에도 머리말에 임시 방이라고 보임 |
 
 ## 사용 방법
 
@@ -93,7 +93,7 @@ xychart-beta
 **0. 팀 방 들어가기** (입장 코드를 켠 서버에서만)
 - 처음 쓰는 팀 — `새 방 만들기` 에 팀 이름과 팀원 수를 넣으면 방 코드 6자리가 나옵니다. 코드를 팀원에게 알려 줍니다
 - 팀원 — 방 코드를 넣고 `처음 참여` 에 이름만 넣습니다. 다음부터는 `기존 팀원` 에서 이름을 고릅니다
-- 둘러보기만 — (준비되면) `체험 방으로 들어가기` 를 누르면 예시 팀이 들어 있는 새 방이 만들어집니다
+- 둘러보기만 — `체험 방으로 들어가기` 를 누르면 예시 팀이 들어 있는 새 방이 만들어지고, 예시 팀원 중 한 명을 골라 들어갑니다. 체험 방은 임시 방이라, 만든 지 24시간이 지난 뒤 누군가 체험 방을 새로 만들 때 지워집니다. 체험 중에도 머리말에 임시 방이라는 안내가 보입니다
 - 들어가면 머리말에 `팀 이름 · 내 이름 · 나가기` 와 `2 / 3명 입장` 이 보입니다. 이름만 고르면 들어가므로 본인 확인은 하지 않습니다
 - **정원은 실제 팀원 수와 맞춰 주세요.** 정원이 다 차야 추정이 공개되므로, 정원을 크게 넣었거나 팀원이 빠졌으면 머리말의 `정원 바꾸기` 로 고칩니다. 지금 인원보다 작게는 못 바꿉니다
 
@@ -214,6 +214,7 @@ LLM은 `/api/breakdown` 한 경로에만 연결되어 있고, 계산과 저장�
 | `GET /api/config` | 입장 코드 스위치(`roomsEnabled`) — 화면이 켜졌는지 판별 | 박지호 |
 | `POST /api/rooms` · `GET /api/rooms/:code` | 방 만들기 · 방 정보 | 박지호 |
 | `POST /api/rooms/:code/join` · `PATCH /api/rooms/:code` | 이름으로 입장 · 정원 수정 | 박지호 |
+| `POST /api/rooms/demo` | 체험 방 새로 만들기 | 김권섭 |
 
 입장 코드가 켜져 있으면 방 API 와 설정을 뺀 나머지 요청은 `X-Room-Code` 헤더로 방을 정합니다. 요청 · 응답 형식은 [팀 브리프](team/README.md)에 있습니다.
 
@@ -293,7 +294,7 @@ docker run -d --name 3oss-app -p 3000:3000 --env-file .env -v 3oss-data:/data 3o
 server.js              서버 시작
 src/
   app.js               Express 앱 · 라우트 연결
-  routes/              members · tasks · progress · weekly · estimates · breakdown · loads · recommend · rooms
+  routes/              members · tasks · progress · weekly · estimates · breakdown · loads · recommend · rooms · demo
   middleware/
     room-context.js    X-Room-Code 로 요청의 방을 정함 (입장 코드가 켜졌을 때)
   lib/
@@ -306,7 +307,7 @@ src/
     breakdown.js       LLM 응답 검사
     explain.js         추천 근거 문장
     llm.js             LLM API 호출
-    demo.js            체험 방 처음 상태의 날짜를 오늘 기준으로 (#67 머지 뒤)
+    demo.js            체험 방 처음 상태의 날짜를 오늘 기준으로
 public/
   index.html           첫 화면 — 인트로 (김권섭)
   intro.css            인트로 전용 스타일
@@ -317,7 +318,7 @@ public/
   load.html            분배 — 부담률 · 담당자 추천 (박지호)
   style.css            공용 스타일
   js/                  api.js · board.js · load.js · sizing.js · enter.js
-seed/demo.json         체험 방 처음 상태 (#67 머지 뒤)
+seed/demo.json         체험 방 처음 상태
 Dockerfile             배포용 이미지
 test/                  단위 테스트
 team/                  역할 분담 · 개인별 지침서
