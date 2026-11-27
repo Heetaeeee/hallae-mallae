@@ -322,7 +322,7 @@ const isParent = (task) => parentIds.has(task.id);
 
 - 화면은 스위치를 `GET /api/config` 의 `roomsEnabled` 로 판별합니다. 다른 경로의 404 문장으로 짐작하지 않습니다.
 - 첫 화면은 홈입니다. 입장 코드가 켜져 있고 저장된 방이 없으면 입장 화면으로 이동합니다(11/23 결정).
-- 체험 방 버튼은 API 를 만드는 동안 `준비 중`, 11/28 동결까지 API 가 없으면 숨깁니다(11/23 결정).
+- 체험 방 버튼은 `POST /api/rooms/demo` 로 바로 동작합니다(11/26). 입장 코드가 꺼져 있으면 입장 화면 자체가 꺼짐 안내만 보입니다.
 - 입장 화면은 "처음 참여"(새 이름, 같은 이름 거절)와 "기존 팀원"(이름 고르기, 본인 확인 없음)을 나눠 둡니다.
 - 방 코드 오류는 장기적으로 문장 대신 오류 코드로 판별합니다(방향 합의, 시점은 미정).
 
@@ -342,6 +342,13 @@ const isParent = (task) => parentIds.has(task.id);
 | A 작업 정의 | 큰 작업 `기말 발표 준비` 와 세부 4개, 두 명만 낸 `리허설`(세 번째로 내면 공개), 의견 차이가 커서 ver 2 로 조율한 `슬라이드 제작`, 아무도 안 낸 작업 |
 | B 분배 | 크기 확정 · 담당 미정 `대본 작성` · `시연 영상 촬영`, 부담률 0% · 63% · 125%(과부하) |
 | C 등록 · 진행 | 할 일 · 진행 중 · 완료 다 있음, 마감 지난 작업, 지난주 · 이번 주 수행률 |
+
+체험 방 API — `POST /api/rooms/demo`(A, `src/routes/demo.js`, 11/26)
+
+- 누를 때마다 이 처음 상태를 `demoRoom()` 으로 오늘 날짜에 맞춰 **새 방**으로 저장합니다. 두 번 누르면 서로 다른 방이고 둘 다 처음 상태입니다
+- 응답은 `{ code, name, size, members }`·201 — 입장 화면이 방 코드를 보여 주고 예시 팀원 중 한 명을 고르게 합니다
+- 만들 때마다 **만든 지 하루가 지난 체험 방을 지웁니다**(`demo: true` 인 방만. 기본 방 · 일반 방은 오래돼도 남김) — 저장소의 `createDemoRoom(room, now)`, 지우기와 넣기를 한 번에 씀
+- 입장 코드가 꺼져 있으면 다른 방 API 처럼 404
 
 `test/demo-seed.test.js` 가 위 조건을 실제 계산 함수(`estimateSummary` · `currentHours` · `weeklyRates` 등)로 확인합니다. 데이터를 바꾸면 이 테스트를 돌려 주세요.
 
@@ -383,6 +390,7 @@ const isParent = (task) => parentIds.has(task.id);
 | B | `GET /api/rooms/:code` | — | `{ code, name, size, memberCount }` |
 | B | `POST /api/rooms/:code/join` | `{ name }` | `Member`·201 |
 | B | `PATCH /api/rooms/:code` | `{ size }` | `{ code, name, size, memberCount }` |
+| A | `POST /api/rooms/demo` | — | `{ code, name, size, members }`·201 — 누를 때마다 체험 방 새로 만듦 |
 | C | `GET /api/members` | — | `Member[]` |
 | C | `POST /api/members` | `{ name, availableHours }` | `Member` (201) — 같은 이름이면 400. 입장 코드가 켜져 있으면 400 `팀원은 입장 화면에서 이름을 넣고 들어옵니다.` |
 | C | `PATCH /api/members/:id` | `{ name?, availableHours? }` | `Member` — 다른 팀원과 같은 이름이면 400 |
@@ -707,7 +715,7 @@ document.addEventListener('data', async (event) => {
 
 | 구분 | 개수 |
 |---|---:|
-| A 기능 | 48 |
+| A 기능 | 53 |
 | B 분배 기능 | 26 |
 | C 기능 | 57 |
 | 방 규칙·변환 | 12 |
@@ -716,8 +724,8 @@ document.addEventListener('data', async (event) => {
 | 공용 방 코드 검사 | 7 |
 | B 방별 부담률·추천 API 통합 | 6 |
 | 체험 방 처음 상태 | 8 |
-| 전체 | 194 |
+| 전체 | 199 |
 
-방 서버 뼈대 테스트 49개, 기존 기능 테스트 131개(A 추정 API 방 단위 5개 포함), B 방별 부담률·추천 API 통합 테스트 6개, 체험 방 처음 상태 테스트 8개를 합쳐 전체 194개입니다.
+방 서버 뼈대 테스트 49개, 기존 기능 테스트 136개(A 추정 API 방 단위 5개 · 체험 방 API 5개 포함), B 방별 부담률·추천 API 통합 테스트 6개, 체험 방 처음 상태 테스트 8개를 합쳐 전체 199개입니다.
 
 테스트를 먼저 작성하고 실패를 확인한 뒤 구현합니다. 기능 추가와 병합에 따라 테스트 수가 달라지면 관련 문서도 갱신합니다.

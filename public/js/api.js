@@ -1,6 +1,6 @@
 // 공용 호출 함수 (C 작성). 각자 화면 JS 는 이 두 함수만 가져다 씁니다.
 
-// 입장 화면(enter.html)에서 들어간 방 — { code, roomName, memberId, memberName }
+// 입장 화면(enter.html)에서 들어간 방 — { code, roomName, memberId, memberName, demo? }
 export const ROOM_KEY = 'hallae:room';
 export function savedRoom() {
   try { return JSON.parse(localStorage.getItem(ROOM_KEY)); } catch { return null; }
@@ -111,7 +111,9 @@ function showRoomBar(room) {
   const bar = make('div', { className: 'stack sub' },
     make('div', { className: 'between' }, text, leave),
     make('div', { className: 'row', style: 'align-items: center' }, make('span', { id: 'room-size' }), show, form),
-    error);
+    error,
+    // 체험 방은 들어간 뒤에도 임시 방임을 알린다 (#78 리뷰)
+    room.demo ? make('p', { textContent: '체험 방(임시) — 임시 방이라, 만든 지 24시간이 지난 뒤 누군가 체험 방을 새로 만들 때 지워집니다. 실제 팀은 나가기 후 새 방을 만들어 주세요.' }) : '');
   document.querySelector('header .nav')?.after(bar);
   loadSize(room.code).catch(() => { show.hidden = true; }); // 방 정보를 못 받으면 정원 칸만 비운다 — 데이터 오류는 #app-error 가 알린다
 }
