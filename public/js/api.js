@@ -6,9 +6,12 @@ export function savedRoom() {
   try { return JSON.parse(localStorage.getItem(ROOM_KEY)); } catch { return null; }
 }
 
-// 방 코드가 없거나 그 방이 없다는 응답이면 입장 화면으로 보낸다 (입장 코드를 켰을 때만 이 응답이 온다 — B 의 room-context)
-// shortcut: 서버 오류 문장으로 판별한다. 문장을 바꾸면 여기도 같이 바꾸고, 필요해지면 오류 코드를 따로 받는다
-const NEEDS_ROOM = ['올바른 방 코드를 함께 보내 주세요.', '방을 찾을 수 없습니다.'];
+// 공용 방 검사에서 반환한 오류 코드로 재입장 필요 여부를 판단한다.
+const NEEDS_ROOM = new Set([
+  'ROOM_REQUIRED',
+  'ROOM_CODE_INVALID',
+  'ROOM_NOT_FOUND'
+]);
 
 export async function api(path, options) {
   const room = savedRoom();
@@ -21,7 +24,7 @@ export async function api(path, options) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     // 방 API(/api/rooms) 자체의 "방을 찾을 수 없습니다" 는 입장 화면에서 코드를 잘못 넣은 경우라 그대로 보여 준다
-    if (NEEDS_ROOM.includes(data.error) && !path.startsWith('/api/rooms') && !location.pathname.endsWith('enter.html')) {
+    if (NEEDS_ROOM.has(data.code) && !path.startsWith('/api/rooms') && !location.pathname.endsWith('enter.html')) {
       try { localStorage.removeItem(ROOM_KEY); } catch { /* 지우지 못해도 입장 화면에서 다시 고르면 된다 */ }
       location.href = 'enter.html';
     }
