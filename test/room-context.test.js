@@ -114,6 +114,7 @@ test('켜진 상태에서 방 코드 헤더가 없으면 400이다', async () =>
     const result = await get('/api/context-check');
 
     assert.equal(result.status, 400);
+    assert.equal(result.body.code, 'ROOM_REQUIRED');
     assert.equal(
       result.body.error,
       '올바른 방 코드를 함께 보내 주세요.'
@@ -128,6 +129,7 @@ test('방 코드 헤더의 형식이 잘못되면 400이다', async () => {
     });
 
     assert.equal(result.status, 400);
+    assert.equal(result.body.code, 'ROOM_CODE_INVALID');
   });
 });
 
@@ -143,6 +145,7 @@ test('존재하지 않는 방 코드면 404이다', async () => {
     });
 
     assert.equal(result.status, 404);
+    assert.equal(result.body.code, 'ROOM_NOT_FOUND');
     assert.equal(
       result.body.error,
       '방을 찾을 수 없습니다.'
