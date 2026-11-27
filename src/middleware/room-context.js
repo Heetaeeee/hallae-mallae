@@ -10,22 +10,26 @@ export function createRoomContext({
   enabled = () => process.env.ROOMS_ENABLED === '1'
 } = {}) {
   return (req, res, next) => {
-    // 전환 기간에는 헤더와 관계없이 기존 기본 방을 사용한다.
     if (!enabled()) {
       req.roomCode = store.getDefaultRoomCode();
       return next();
     }
 
-    const code = normalizeRoomCode(req.get('X-Room-Code'));
+    const header = req.get('X-Room-Code');
+    const code = normalizeRoomCode(header);
 
     if (code === null) {
       return res.status(400).json({
+        code: header === undefined
+          ? 'ROOM_REQUIRED'
+          : 'ROOM_CODE_INVALID',
         error: '올바른 방 코드를 함께 보내 주세요.'
       });
     }
 
     if (!store.loadRoom(code)) {
       return res.status(404).json({
+        code: 'ROOM_NOT_FOUND',
         error: '방을 찾을 수 없습니다.'
       });
     }
